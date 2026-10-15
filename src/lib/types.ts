@@ -40,7 +40,7 @@ export interface Proposal {
 export interface TransactionNote {
   id: string;
   text: string;
-  source: 'instruction' | 'chat';
+  source: 'instruction' | 'chat' | 'import';
   createdAt: string;
 }
 export interface Transaction {
@@ -122,7 +122,25 @@ export interface PreviewRow extends ParsedRow {
   duplicate: boolean;
   existing: { id: string; date: string; description: string; amountCents: number; state: string }[];
 }
+export interface ImportResult {
+  ids: string[];
+  summary: string;
+  items: { id: string; version: number; date: string }[];
+  dateRange: { from: string | null; to: string | null };
+}
+export interface ImportCompletion {
+  context: string;
+  from: string | null;
+  to: string | null;
+  savedAt: string;
+  affectedCount: number;
+  process: boolean;
+  jobId?: string;
+  digest: string;
+  summary: string;
+}
 export interface ImportPreview {
+  completion?: ImportCompletion;
   id: string;
   accountId: string;
   fileName: string;

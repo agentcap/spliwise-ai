@@ -157,7 +157,11 @@ async function handle(req: Request, context: Context): Promise<Response> {
         service.preview(String(form.get('accountId') || ''), file.name, await file.text()),
       );
     }
-    invariant(Number(req.headers.get('content-length') || 0) <= 2_000_000, 'Request is too large.');
+    invariant(
+      Number(req.headers.get('content-length') || 0) <=
+        (key === 'imports/finish' ? 8_000_000 : 2_000_000),
+      'Request is too large.',
+    );
     const body = await req.json();
     if (key === 'transfer/confirm') {
       const a = z
@@ -176,6 +180,19 @@ async function handle(req: Request, context: Context): Promise<Response> {
           a.acknowledgePeople,
         ),
       );
+    }
+    if (key === 'imports/finish') {
+      const a = z
+        .object({
+          id: z.string(),
+          items: z.array(itemSchema).max(50000),
+          context: z.string().max(4000),
+          process: z.boolean(),
+          from: z.string().optional(),
+          to: z.string().optional(),
+        })
+        .parse(body);
+      return Response.json(service.finishImport(a.id, a.items, a.context, a.process, a.from, a.to));
     }
     if (key === 'imports/confirm') {
       const a = z

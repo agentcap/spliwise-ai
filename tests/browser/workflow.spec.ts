@@ -600,3 +600,119 @@ test('download transactions and rules, preview duplicate skips, and import saved
   await dialog.getByRole('button', { name: 'Close', exact: true }).click();
   expect(errors).toEqual([]);
 });
+
+test('ask for date-scoped CSV context, save with mentions, process later, skip duplicates, and process a second import immediately', async ({
+  page,
+  request,
+}) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  const personResponse = await request.post('/api/people', {
+    data: { name: 'Import Context Friend', handle: 'import_context_friend', relation: 'Friend' },
+  });
+  expect(personResponse.ok()).toBe(true);
+  const person = await personResponse.json();
+  const body =
+    'Date,Description,Amount\n01/01/2026,AUTOPAY PAYMENT,-100.00\n01/10/2026,CSV CONTEXT MEAL,20.01\n01/11/2026,CSV CONTEXT COFFEE,11.50\n02/01/2026,CSV CONTEXT OTHER,8.00';
+  await page.goto('/');
+  async function upload(content: string) {
+    await page.getByRole('button', { name: 'Import statements', exact: true }).first().click();
+    const dialog = page.getByRole('dialog');
+    await dialog.getByRole('combobox').selectOption('amex');
+    await dialog.getByLabel('Statement CSV').setInputFiles({
+      name: 'synthetic-context.csv',
+      mimeType: 'text/csv',
+      buffer: Buffer.from(content),
+    });
+    await dialog.getByRole('button', { name: 'Preview import', exact: true }).click();
+    await expect(dialog.getByRole('heading', { name: 'Review your import' })).toBeVisible();
+    return dialog;
+  }
+  let dialog = await upload(body);
+  await dialog.getByRole('button', { name: 'Confirm import', exact: true }).click();
+  await expect(
+    dialog.getByRole('heading', { name: 'Anything to know about this period?' }),
+  ).toBeVisible();
+  await expect(
+    dialog.getByText('American Express · 2026-01-10 → 2026-02-01', { exact: true }),
+  ).toBeVisible();
+  const contextBox = dialog.getByLabel('Context for this import (optional)');
+  await contextBox.fill('On a hiking trip; split equally with @import_context_');
+  await dialog.getByRole('option', { name: /Import Context Friend/ }).click();
+  await dialog.getByText('Use a narrower date range', { exact: true }).click();
+  await dialog.getByLabel('Context start date').fill('2026-01-10');
+  await dialog.getByLabel('Context end date').fill('2026-01-11');
+  await expect(dialog.getByText(/Applies to 2 newly imported transactions/)).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await page.setViewportSize({ width: 1200, height: 1100 });
+  await page.screenshot({ path: 'test-results/import-context-prompt.png', fullPage: false });
+  await dialog.getByRole('button', { name: 'Save context & finish', exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible();
+  let state = (await (await request.get('/api/state')).json()) as Snapshot;
+  const imported = state.transactions.filter((tx) => tx.description.startsWith('CSV CONTEXT '));
+  expect(imported).toHaveLength(3);
+  expect(imported.filter((tx) => tx.notes.some((note) => note.source === 'import'))).toHaveLength(
+    2,
+  );
+  const other = imported.find((tx) => tx.description === 'CSV CONTEXT OTHER')!;
+  expect(other.notes).toHaveLength(0);
+  expect(
+    state.jobs.some((job) => job.payload.ids?.some((id) => imported.some((tx) => tx.id === id))),
+  ).toBe(false);
+  const balance = state.dashboard.totalOutstandingCents;
+  await page.reload();
+  await page.getByRole('button', { name: 'Review workspace', exact: false }).click();
+  for (const description of ['CSV CONTEXT MEAL', 'CSV CONTEXT COFFEE'])
+    await page.getByRole('checkbox', { name: 'Select ' + description, exact: true }).check();
+  await page.getByRole('button', { name: 'Process selected', exact: true }).click();
+  await expect
+    .poll(async () => {
+      const current = (await (await request.get('/api/state')).json()) as Snapshot;
+      return current.transactions
+        .filter(
+          (tx) => tx.description === 'CSV CONTEXT MEAL' || tx.description === 'CSV CONTEXT COFFEE',
+        )
+        .every(
+          (tx) =>
+            tx.state === 'ready' &&
+            tx.proposal!.splits.some((share) => share.personId === person.id),
+        );
+    })
+    .toBe(true);
+  const contextCard = page
+    .locator('.transaction-card')
+    .filter({ has: page.getByRole('heading', { name: 'CSV CONTEXT MEAL', exact: true }) });
+  await contextCard.getByText('Saved context', { exact: false }).click();
+  await expect(contextCard.getByText(/From statement import/)).toBeVisible();
+
+  dialog = await upload(body);
+  await dialog.getByRole('checkbox', { name: /I reviewed/ }).check();
+  await dialog.getByRole('button', { name: 'Confirm import', exact: true }).click();
+  await expect(dialog.getByText('0 new transactions', { exact: true })).toBeVisible();
+  await expect(dialog.getByLabel('Context for this import (optional)')).toHaveCount(0);
+  await dialog.getByRole('button', { name: 'Finish for now', exact: true }).click();
+  const beforeNow = (await (await request.get('/api/state')).json()) as Snapshot;
+  expect(beforeNow.transactions.find((tx) => tx.id === other.id)!.notes).toHaveLength(0);
+
+  dialog = await upload('Date,Description,Amount\n02/10/2026,CSV CONTEXT NOW,12.00');
+  await dialog.getByRole('button', { name: 'Confirm import', exact: true }).click();
+  await dialog
+    .getByLabel('Context for this import (optional)')
+    .fill('Personal expense. A souvenir from the trip.');
+  await dialog.getByRole('button', { name: 'Save context & process', exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  await expect
+    .poll(async () => {
+      state = (await (await request.get('/api/state')).json()) as Snapshot;
+      return state.transactions.find((tx) => tx.description === 'CSV CONTEXT NOW')?.state;
+    })
+    .toBe('ready');
+  expect(state.transactions.find((tx) => tx.description === 'CSV CONTEXT NOW')).toMatchObject({
+    notes: [{ source: 'import', text: 'Personal expense. A souvenir from the trip.' }],
+    proposal: { splits: [{ personId: 'self', amountCents: 1200 }] },
+  });
+  expect(state.dashboard.totalOutstandingCents).toBe(balance);
+  expect(errors).toEqual([]);
+});

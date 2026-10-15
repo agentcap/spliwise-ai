@@ -2,8 +2,17 @@
 import { useState } from 'react';
 import { ArrowRight, Check, FileUp, LoaderCircle, Plus, ShieldCheck, Sparkles } from 'lucide-react';
 import { money, cents, splitAmount, linkedRefundShares } from '@/lib/money';
-import type { Snapshot, Transaction, ImportPreview, SplitSpec, Rule } from '@/lib/types';
+import type {
+  Snapshot,
+  Transaction,
+  ImportPreview,
+  ImportResult,
+  ImportCompletion,
+  SplitSpec,
+  Rule,
+} from '@/lib/types';
 import MentionInput from './mention-input';
+import ImportContextStep from './import-context-step';
 import { merchantPatterns } from '@/lib/rule-definition';
 import { api, Modal } from './ui';
 const today = () => {
@@ -611,7 +620,10 @@ export function ImportDialog({
     [keep, setKeep] = useState<number[]>([]),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
-    [result, setResult] = useState<{ ids: string[]; summary: string } | null>(null);
+    [result, setResult] = useState<ImportResult | null>(null),
+    [context, setContext] = useState(''),
+    [contextFrom, setContextFrom] = useState(''),
+    [contextTo, setContextTo] = useState('');
   async function loadPreview() {
     if (!file) return;
     setBusy(true);
@@ -635,14 +647,35 @@ export function ImportDialog({
     setBusy(true);
     setError('');
     try {
-      setResult(
-        await api('imports/confirm', {
-          id: preview.id,
-          acknowledgeSkips: ack,
-          keepRows: keep,
-          skipInvalid,
-        }),
-      );
+      const confirmed = await api<ImportResult>('imports/confirm', {
+        id: preview.id,
+        acknowledgeSkips: ack,
+        keepRows: keep,
+        skipInvalid,
+      });
+      setResult(confirmed);
+      setContextFrom(confirmed.dateRange.from || '');
+      setContextTo(confirmed.dateRange.to || '');
+    } catch (e) {
+      setError((e as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function finish(run: boolean) {
+    if (!result || !preview || busy) return;
+    setBusy(true);
+    setError('');
+    try {
+      const completion = await api<ImportCompletion>('imports/finish', {
+        id: preview.id,
+        items: result.items.map(({ id, version }) => ({ id, version })),
+        context,
+        process: run,
+        from: contextFrom || undefined,
+        to: contextTo || undefined,
+      });
+      await onImported(result.ids, completion.summary, run);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -660,12 +693,16 @@ export function ImportDialog({
       }
       subtitle={
         result
-          ? 'Process the new transactions now, or come back when you’re ready.'
+          ? 'Add optional context for the newly imported dates, then process now or later.'
           : preview
             ? 'Check the date ranges and every proposed skip.'
             : 'Upload an exported Amex, Chase Sapphire, or Chase Prime CSV.'
       }
-      onClose={onClose}
+      onClose={() => {
+        if (busy) return;
+        if (result) void finish(false);
+        else onClose();
+      }}
       wide={!!preview && !result}
     >
       <div className="modal-body form">
@@ -677,36 +714,23 @@ export function ImportDialog({
             2 <b>Review</b>
           </span>
           <span className={result ? 'active' : ''}>
-            3 <b>Next step</b>
+            3 <b>Context</b>
           </span>
         </div>
         {result ? (
-          <>
-            <div className="import-success">
-              <span>
-                <Check size={30} />
-              </span>
-              <h3>{result.ids.length} new transactions</h3>
-              <p>{result.summary}</p>
-              <small>Saved in Inbox. Your balances haven’t changed.</small>
-            </div>
-            <footer className="modal-actions">
-              <button
-                className="quiet-button"
-                onClick={() => onImported(result.ids, result.summary, false)}
-              >
-                Finish for now
-              </button>
-              <button
-                className="primary"
-                disabled={!result.ids.length}
-                onClick={() => onImported(result.ids, result.summary, true)}
-              >
-                <Sparkles size={16} />
-                Process now
-              </button>
-            </footer>
-          </>
+          <ImportContextStep
+            result={result}
+            data={data}
+            accountId={account}
+            context={context}
+            onContext={setContext}
+            from={contextFrom}
+            onFrom={setContextFrom}
+            to={contextTo}
+            onTo={setContextTo}
+            busy={busy}
+            onFinish={finish}
+          />
         ) : preview ? (
           <>
             <div className="import-ranges">

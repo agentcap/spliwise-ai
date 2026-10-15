@@ -51,6 +51,14 @@ Chat supports Markdown replies, growing input, Enter-to-send, live reply text an
 
 Conversation and context timestamps default to **America/Los_Angeles**. Set **NEXT_PUBLIC_TIME_ZONE** before starting if you use another timezone.
 
+## Context after a CSV import
+
+After confirming a new statement CSV, the optional **Context** step shows the card and observed dates of the expenses actually added. Share a trip, guests, or a temporary split arrangement, and use @ autocomplete to name people. **Use a narrower date range** limits the context to a subset of those new expenses. Skipped duplicates, card payments, older imports, and other cards stay untouched.
+
+Choose **Save context & process** or **Save context & finish**. Leaving the field blank keeps **Process now** and **Finish for now** available. Import-only reuploads with no new expenses skip the context prompt. Processing is queued atomically after context is saved and identical retries cannot start it twice.
+
+Context is one-off, attached to each scoped expense under **Saved context → From statement import**, searchable and retained after finalization. It is also recorded as the context provided in import history and travels with transaction JSON exports. Context instructions take priority over broader rules during future processing; a reusable rule still requires explicit approval. Undo can remove the saved context/instruction batch while the original import and its historical receipt remain.
+
 ## Import and export your data
 
 Use **Import / export** above any page, or **Import / export rules** on the rules page. Choose Transactions or Rules.
@@ -135,6 +143,7 @@ All routes start with **/api**. Mutation bodies are JSON except multipart previe
 | GET    | /health                              | Local server health                                                 |
 | POST   | /imports/preview                     | Multipart file and accountId                                        |
 | GET    | /imports/:id                         | Retained row decisions and payment history                          |
+| POST   | /imports/finish                      | Save optional date-scoped context and atomically queue processing   |
 | POST   | /imports/confirm                     | Preview ID, skip acknowledgements, retained duplicate row numbers   |
 | POST   | /people                              | Name, unique handle, relationship                                   |
 | POST   | /transactions/instruct               | Save Inbox instruction/context and queue that expense atomically    |

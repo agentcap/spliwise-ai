@@ -12,6 +12,8 @@ import type {
   ActionBatch,
   AgentJob,
   ImportPreview,
+  ImportResult,
+  ImportCompletion,
   ParsedRow,
   PreviewRow,
   Person,
@@ -296,7 +298,7 @@ export class Store {
     acknowledgeSkips: boolean,
     keepRows: number[] = [],
     skipInvalid = false,
-  ): { ids: string[]; summary: string } {
+  ): ImportResult {
     return this.db
       .transaction(() => {
         const record = this.one<Raw>('SELECT * FROM imports WHERE id=?', id);
@@ -379,7 +381,122 @@ export class Store {
         this.db
           .prepare("UPDATE imports SET status='confirmed',summary=? WHERE id=?")
           .run(summary, id);
-        return { ids, summary };
+        const created = this.all<{ id: string; date: string; version: number }>(
+          'SELECT t.id,t.date,t.version FROM transactions t JOIN import_rows r ON r.id=t.importRowId WHERE r.importId=? ORDER BY t.date,t.id',
+          id,
+        );
+        return {
+          ids,
+          summary,
+          items: created.map((tx) => ({ id: tx.id, version: tx.version, date: tx.date })),
+          dateRange: { from: created[0]?.date || null, to: created.at(-1)?.date || null },
+        };
+      })
+      .immediate();
+  }
+  finishImport(
+    id: string,
+    items: { id: string; version: number }[],
+    context: string,
+    process: boolean,
+    from?: string,
+    to?: string,
+    actor: Actor = 'user',
+  ): ImportCompletion {
+    invariant(actor === 'user', 'Only you can add import context or start processing.', 403);
+    invariant(context.length <= 4000, 'Import context can contain up to 4,000 characters.');
+    const text = context.trim();
+    this.resolveMentions(text);
+    if (!text) {
+      from = undefined;
+      to = undefined;
+    }
+    if (from) isoDate(from);
+    if (to) isoDate(to);
+    invariant(!from || !to || from <= to, 'Context start must precede end date.');
+    return this.db
+      .transaction(() => {
+        const record = this.one<{ status: string; preview: string; summary: string }>(
+          'SELECT status,preview,summary FROM imports WHERE id=?',
+          id,
+        );
+        invariant(record?.status === 'confirmed', 'Confirmed import not found.', 404);
+        const preview = JSON.parse(record.preview) as ImportPreview;
+        const imported = this.all<{ id: string }>(
+          'SELECT t.id FROM transactions t JOIN import_rows r ON r.id=t.importRowId WHERE r.importId=? ORDER BY t.date,t.id',
+          id,
+        ).map((row) => this.transaction(row.id));
+        const expected = new Map(items.map((item) => [item.id, item.version]));
+        invariant(
+          expected.size === items.length &&
+            items.length === imported.length &&
+            imported.every((tx) => expected.has(tx.id)),
+          'Choose exactly the new transactions from this import.',
+        );
+        const digest = createHash('sha256')
+          .update(JSON.stringify([text, process, from || null, to || null]))
+          .digest('hex');
+        if (preview.completion) {
+          invariant(
+            preview.completion.digest === digest,
+            'This import step was already completed. Add further instructions from the review workspace.',
+            409,
+          );
+          return preview.completion;
+        }
+        if (text || process)
+          invariant(
+            imported.every((tx) => tx.state === 'inbox' && tx.version === expected.get(tx.id)),
+            'Some imported expenses have changed. Review them before adding more context or processing.',
+            409,
+          );
+        const scoped = imported.filter(
+          (tx) => (!from || tx.date >= from) && (!to || tx.date <= to),
+        );
+        if (text)
+          invariant(scoped.length > 0, 'No new transactions fall within this context date range.');
+        if (text)
+          this.batch(
+            'user',
+            'Save context for ' + scoped.length + ' imported expenses',
+            scoped.map((tx) => ({ table: 'transactions' as const, id: tx.id })),
+            (batchId) => {
+              for (const tx of scoped)
+                this.db
+                  .prepare(
+                    'UPDATE transactions SET instruction=?,notes=?,version=version+1,batchId=?,updatedAt=? WHERE id=?',
+                  )
+                  .run(
+                    text,
+                    JSON.stringify(this.withNote(tx, text, 'import')),
+                    batchId,
+                    now(),
+                    tx.id,
+                  );
+            },
+            'import:' + id + ':context',
+          );
+        const jobId =
+          process && imported.length
+            ? this.enqueue('process', { ids: imported.map((tx) => tx.id) })
+            : undefined;
+        const completion: ImportCompletion = {
+          context: text,
+          from: from || null,
+          to: to || null,
+          savedAt: now(),
+          affectedCount: text ? scoped.length : 0,
+          process,
+          jobId,
+          digest,
+          summary:
+            record.summary +
+            (text ? ' · Context saved for ' + scoped.length + ' new expenses' : '') +
+            (jobId ? ' · Processing started' : ''),
+        };
+        preview.completion = completion;
+        this.db.prepare('UPDATE imports SET preview=? WHERE id=?').run(JSON.stringify(preview), id);
+        return completion;
       })
       .immediate();
   }
@@ -499,7 +616,7 @@ export class Store {
       stepKey,
     );
   }
-  private withNote(tx: Transaction, text: string, source: 'instruction' | 'chat') {
+  private withNote(tx: Transaction, text: string, source: 'instruction' | 'chat' | 'import') {
     invariant(
       text.trim().length > 0 && text.length <= 12000,
       'Context must be 1–12,000 characters.',

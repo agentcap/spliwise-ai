@@ -37,8 +37,12 @@ export default function TransactionContext({
           <div className="context-entry" key={tx.id + note.id}>
             <small>
               {transactions.length > 1 ? tx.date + ' · ' + money(tx.amountCents) + ' · ' : ''}
-              {note.source === 'chat' ? 'From chat' : 'Your instruction'} ·{' '}
-              {displayTime(note.createdAt, { dateStyle: 'medium', timeStyle: 'short' })}
+              {note.source === 'chat'
+                ? 'From chat'
+                : note.source === 'import'
+                  ? 'From statement import'
+                  : 'Your instruction'}{' '}
+              · {displayTime(note.createdAt, { dateStyle: 'medium', timeStyle: 'short' })}
             </small>
             <p>{note.text}</p>
           </div>

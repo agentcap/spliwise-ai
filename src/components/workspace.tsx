@@ -1390,12 +1390,11 @@ export default function Workspace() {
           <ImportDialog
             data={data}
             onClose={() => setImportOpen(false)}
-            onImported={async (ids, summary, run) => {
+            onImported={async (_ids, summary, run) => {
               setImportOpen(false);
               await fetchData();
               setNotice({ text: summary });
-              if (run) await process(ids);
-              else navigate('overview');
+              navigate(run ? 'review' : 'overview');
             }}
           />
         )}
@@ -1407,6 +1406,17 @@ export default function Workspace() {
             onClose={() => setImportDetail(null)}
           >
             <div className="modal-body">
+              {importDetail.preview.completion?.context && (
+                <section className="import-context-history">
+                  <h3>Context provided at import</h3>
+                  <small>
+                    {importDetail.preview.completion.from || 'All new dates'} →{' '}
+                    {importDetail.preview.completion.to || 'All new dates'} ·{' '}
+                    {importDetail.preview.completion.affectedCount} new expenses
+                  </small>
+                  <p>{importDetail.preview.completion.context}</p>
+                </section>
+              )}
               <div className="preview-table">
                 <table>
                   <thead>

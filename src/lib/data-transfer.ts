@@ -78,7 +78,7 @@ const transaction = z.object({
       z.object({
         id,
         text: z.string().min(1).max(12000),
-        source: z.enum(['instruction', 'chat']),
+        source: z.enum(['instruction', 'chat', 'import']),
         createdAt: z.iso.datetime(),
       }),
     )
