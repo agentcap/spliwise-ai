@@ -15,3 +15,4 @@ coverage/
 !tests/fixtures/*.csv
 next-env.d.ts
 tsconfig.tsbuildinfo
+.next-browser-tests/

@@ -19,6 +19,7 @@ export default defineConfig({
     timeout: 60000,
     env: {
       PORT: '3100',
+      NEXT_DIST_DIR: '.next-browser-tests',
       DATABASE_PATH: db,
       AGENT_MODE: 'mock',
       OPENAI_API_KEY: '',

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import './globals.css';
 import './theme.css';
+import './assistant.css';
 
 export const metadata: Metadata = {
   title: 'Splitwise AI — A clearer share',

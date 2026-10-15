@@ -37,6 +37,12 @@ export interface Proposal {
   refundOf?: string;
   spec?: SplitSpec;
 }
+export interface TransactionNote {
+  id: string;
+  text: string;
+  source: 'instruction' | 'chat';
+  createdAt: string;
+}
 export interface Transaction {
   id: string;
   accountId: string;
@@ -51,6 +57,7 @@ export interface Transaction {
   state: TransactionState;
   proposal: Proposal | null;
   instruction: string;
+  notes: TransactionNote[];
   version: number;
   batchId: string | null;
   updatedAt: string;
@@ -123,11 +130,19 @@ export interface ActionBatch {
 export interface AgentJob {
   id: string;
   kind: 'process' | 'chat';
-  payload: { ids?: string[]; text?: string; mentionIds?: string[] };
+  payload: {
+    ids?: string[];
+    text?: string;
+    mentionIds?: string[];
+    origin?: 'transaction';
+    versions?: { id: string; version: number }[];
+  };
   status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
   progress: number;
   cursor: number;
   result: string;
+  activity: string;
+  response: string;
   error: string;
   cancelRequested: number;
   leaseUntil: number;
@@ -139,6 +154,7 @@ export interface Message {
   role: 'user' | 'assistant';
   text: string;
   jobId: string | null;
+  transactionIds: string[];
   createdAt: string;
 }
 export interface ExpenseBalance {

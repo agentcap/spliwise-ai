@@ -2,6 +2,7 @@ import type { Store } from './store';
 import { askAgent, type AgentPlan } from './agent';
 import { ruleProposal } from './rules';
 import type { AgentJob } from './types';
+import { invariant } from './errors';
 const timestamp = () => new Date().toISOString();
 export function claimJob(store: Store): AgentJob | undefined {
   return store.db
@@ -57,6 +58,7 @@ export function applyStep(
           plan.message +
             (skipped ? ' ' + skipped + ' changed transaction(s) were left untouched.' : ''),
           jobId,
+          job.payload.ids,
         );
       store.db
         .prepare('UPDATE jobs SET cursor=?,progress=?,result=?,updatedAt=? WHERE id=?')
@@ -67,7 +69,30 @@ export function applyStep(
 export async function executeJob(store: Store, job: AgentJob, signal?: AbortSignal): Promise<void> {
   if (job.kind === 'chat') {
     if (job.cursor === 0) {
-      const plan = await askAgent(store, job.payload.text!, job.payload.ids, signal);
+      for (const item of job.payload.versions || []) {
+        const tx = store.transaction(item.id);
+        invariant(
+          tx.version === item.version && tx.state !== 'finalized',
+          'This expense changed after the instruction was sent. Send an updated instruction.',
+          409,
+        );
+      }
+      let lastWrite = 0;
+      let response = '';
+      let activity = 'Reading your instructions…';
+      const progress = (update: { text?: string; activity?: string }) => {
+        if (update.text !== undefined) response = update.text;
+        const activityChanged = update.activity !== undefined && update.activity !== activity;
+        if (update.activity) activity = update.activity;
+        if (Date.now() - lastWrite < 200 && !activityChanged) return;
+        lastWrite = Date.now();
+        store.db
+          .prepare(
+            "UPDATE jobs SET response=?,activity=?,updatedAt=? WHERE id=? AND status='running' AND cancelRequested=0",
+          )
+          .run(response, activity, timestamp(), job.id);
+      };
+      const plan = await askAgent(store, job.payload.text!, job.payload.ids, signal, progress);
       applyStep(store, job.id, 0, plan, 1, 100);
     }
   } else {
@@ -152,7 +177,7 @@ export async function executeJob(store: Store, job: AgentJob, signal?: AbortSign
   }
   store.db
     .prepare(
-      "UPDATE jobs SET status='completed',progress=100,leaseUntil=0,updatedAt=? WHERE id=? AND cancelRequested=0",
+      "UPDATE jobs SET status='completed',progress=100,activity='',response='',leaseUntil=0,updatedAt=? WHERE id=? AND cancelRequested=0",
     )
     .run(timestamp(), job.id);
 }

@@ -310,9 +310,9 @@ describe('durable jobs and mocked agent', () => {
     process.env.AGENT_MODE = 'mock';
     const person = store.addPerson('Alex', 'alex'),
       tx = ingest(csv(row()))[0];
+    const id = store.enqueue('chat', { text: 'Split equally with @alex', ids: [tx.id] });
     const plan = await askAgent(store, 'Split equally with @alex', [tx.id]);
     expect(plan.updates[0].proposal?.splits).toHaveLength(2);
-    const id = store.enqueue('chat', { text: 'Split equally with @alex', ids: [tx.id] });
     const job = claimJob(store)!;
     applyStep(store, id, 0, plan, 1, 100);
     const version = store.transaction(tx.id).version;
@@ -427,4 +427,130 @@ describe('rule revision and repayment safeguards', () => {
       /available credit/,
     );
   });
+});
+
+describe('quick instructions and durable transaction context', () => {
+  it('saves context and queues only that expense, then retains it after approval and restart', async () => {
+    process.env.AGENT_MODE = 'mock';
+    const person = store.addPerson('Alex', 'alex');
+    const [tx, untouched] = ingest(csv(row(), row('01/11/2026', 'OTHER')));
+    const text = 'Split equally with @alex. This was dinner after our hiking trip.';
+    const id = store.instruct([{ id: tx.id, version: tx.version }], text);
+    expect(store.transaction(tx.id).notes.map((n) => n.text)).toEqual([text]);
+    expect(store.transaction(tx.id).instruction).toBe(text);
+    expect(store.job(id).payload.ids).toEqual([tx.id]);
+    expect(store.snapshot().messages[0].transactionIds).toEqual([tx.id]);
+    expect(store.snapshot().dashboard.totalOutstandingCents).toBe(0);
+    await executeJob(store, claimJob(store)!);
+    const ready = store.transaction(tx.id);
+    expect(ready.state).toBe('ready');
+    expect(ready.proposal?.splits.map((s) => s.personId).sort()).toEqual(
+      ['self', person.id].sort(),
+    );
+    expect(store.transaction(untouched.id).state).toBe('inbox');
+    store.review([{ id: ready.id, version: ready.version }], 'approve');
+    store.db.close();
+    store = new Store(openDatabase(join(dir, 'test.sqlite')));
+    expect(store.transaction(tx.id).notes[0].text).toBe(text);
+    expect(store.transaction(tx.id).state).toBe('finalized');
+    expect(() =>
+      store.instruct([{ id: tx.id, version: store.transaction(tx.id).version }], 'personal'),
+    ).toThrow(/Inbox/);
+    store.undo();
+    expect(store.transaction(tx.id).notes[0].text).toBe(text);
+  });
+
+  it('atomically rejects unknown mentions, duplicate sends and stale queued instructions', async () => {
+    process.env.AGENT_MODE = 'mock';
+    const tx = ingest(csv(row()))[0];
+    expect(() => store.instruct([{ id: tx.id, version: tx.version }], 'With @missing')).toThrow(
+      /Unknown/,
+    );
+    expect(store.transaction(tx.id).notes).toEqual([]);
+    expect(store.snapshot().jobs).toEqual([]);
+    const id = store.instruct(
+      [{ id: tx.id, version: tx.version }],
+      'Personal expense. Bought supplies for my garden.',
+    );
+    expect(() => store.instruct([{ id: tx.id, version: tx.version }], 'personal')).toThrow(
+      /changed/,
+    );
+    expect(store.snapshot().jobs).toHaveLength(1);
+    const current = store.transaction(tx.id);
+    store.review(
+      [{ id: tx.id, version: current.version }],
+      'correct',
+      'This was a gift, my personal expense.',
+    );
+    await expect(executeJob(store, store.job(id))).rejects.toThrow(/changed after/);
+    expect(store.transaction(tx.id).instruction).toContain('gift');
+    expect(store.transaction(tx.id).notes).toHaveLength(2);
+    expect(store.transaction(tx.id).state).toBe('inbox');
+  });
+
+  it('saves scoped chat context once and applies buffered agent notes at most once', () => {
+    const person = store.addPerson('Alex', 'alex');
+    const tx = ingest(csv(row()))[0];
+    const id = store.enqueue('chat', {
+      text: 'Dinner with @alex on our road trip. Split equally.',
+      ids: [tx.id],
+    });
+    const fresh = store.transaction(tx.id);
+    expect(fresh.notes[0].source).toBe('chat');
+    const plan = {
+      message: 'Prepared a split.',
+      rules: [],
+      updates: [
+        {
+          id: tx.id,
+          version: fresh.version,
+          proposal: propose(fresh, person.id),
+          state: 'ready' as const,
+          context: 'The restaurant was near our hotel.',
+        },
+      ],
+    };
+    applyStep(store, id, 0, plan, 1, 100);
+    applyStep(store, id, 0, plan, 1, 100);
+    expect(store.transaction(tx.id).notes).toHaveLength(2);
+    const ready = store.transaction(tx.id);
+    store.review([{ id: ready.id, version: ready.version }], 'approve');
+    expect(() =>
+      store.saveProposals(
+        [
+          {
+            id: tx.id,
+            version: store.transaction(tx.id).version,
+            state: 'inbox',
+            proposal: null,
+            context: 'Changed',
+          },
+        ],
+        'agent',
+      ),
+    ).toThrow(/Finalized/);
+    expect(store.transaction(tx.id).notes).toHaveLength(2);
+  });
+
+  it('keeps a focused clarification in Inbox while preserving every earlier note', async () => {
+    process.env.AGENT_MODE = 'mock';
+    const tx = ingest(csv(row()))[0];
+    store.instruct([{ id: tx.id, version: tx.version }], 'This charge was for our weekend trip.');
+    await executeJob(store, claimJob(store)!);
+    const fresh = store.transaction(tx.id);
+    expect(fresh.state).toBe('inbox');
+    expect(fresh.attention).toContain('Who');
+    expect(fresh.notes[0].text).toContain('weekend trip');
+    store.instruct([{ id: fresh.id, version: fresh.version }], 'My personal expense.');
+    await executeJob(store, claimJob(store)!);
+    expect(store.transaction(tx.id).state).toBe('ready');
+    expect(store.transaction(tx.id).notes).toHaveLength(2);
+  });
+});
+
+it('keeps chat turns in insertion order when their timestamps match', () => {
+  const id = store.enqueue('chat', { text: 'A question about expenses.' });
+  store.addMessage('assistant', 'An answer.', id);
+  store.db.prepare("UPDATE messages SET createdAt='2026-10-15T20:00:00.000Z'").run();
+  expect(store.snapshot().messages.map((m) => m.role)).toEqual(['user', 'assistant']);
 });

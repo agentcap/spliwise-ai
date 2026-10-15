@@ -48,6 +48,7 @@ export class Store {
         ({
           ...r,
           proposal: r.proposal ? JSON.parse(r.proposal as string) : null,
+          notes: JSON.parse((r.notes as string) || '[]'),
         }) as unknown as Transaction,
     );
   }
@@ -57,6 +58,7 @@ export class Store {
     return {
       ...r,
       proposal: r.proposal ? JSON.parse(r.proposal as string) : null,
+      notes: JSON.parse((r.notes as string) || '[]'),
     } as unknown as Transaction;
   }
   rules(): Rule[] {
@@ -419,6 +421,7 @@ export class Store {
       proposal: Proposal | null;
       state: 'inbox' | 'ready';
       attention?: string;
+      context?: string;
     }[],
     actor: Actor = 'agent',
     stepKey?: string,
@@ -450,12 +453,13 @@ export class Store {
           invariant(u.state !== 'ready' || u.proposal, 'Ready transactions need a split proposal.');
           this.db
             .prepare(
-              'UPDATE transactions SET state=?,proposal=?,attention=?,version=version+1,batchId=?,updatedAt=? WHERE id=?',
+              'UPDATE transactions SET state=?,proposal=?,attention=?,notes=?,version=version+1,batchId=?,updatedAt=? WHERE id=?',
             )
             .run(
               u.state,
               u.proposal ? JSON.stringify(u.proposal) : null,
               u.attention || '',
+              JSON.stringify(u.context ? this.withNote(tx, u.context, 'chat') : tx.notes),
               batchId,
               now(),
               u.id,
@@ -464,6 +468,31 @@ export class Store {
       },
       stepKey,
     );
+  }
+  private withNote(tx: Transaction, text: string, source: 'instruction' | 'chat') {
+    invariant(
+      text.trim().length > 0 && text.length <= 12000,
+      'Context must be 1–12,000 characters.',
+    );
+    if (tx.notes.some((n) => n.text === text.trim())) return tx.notes;
+    return [...tx.notes, { id: randomUUID(), text: text.trim(), source, createdAt: now() }];
+  }
+  instruct(items: { id: string; version: number }[], text: string): string {
+    return this.db
+      .transaction(() => {
+        invariant(items.length > 0 && items.length <= 100, 'Choose 1–100 Inbox expenses.');
+        for (const item of items) {
+          const tx = this.transaction(item.id);
+          invariant(tx.state === 'inbox', 'Quick instructions are only available in Inbox.', 403);
+        }
+        this.review(items, 'correct', text);
+        return this.enqueue('chat', {
+          ids: items.map((item) => item.id),
+          text: text.trim(),
+          origin: 'transaction',
+        });
+      })
+      .immediate();
   }
   review(
     items: { id: string; version: number }[],
@@ -480,7 +509,10 @@ export class Store {
     invariant(new Set(items.map((i) => i.id)).size === items.length, 'Duplicate selection.');
     this.resolveMentions(instruction);
     if (action === 'correct')
-      invariant(instruction.trim().length > 0, 'Add your split instruction.');
+      invariant(
+        instruction.trim().length > 0 && instruction.length <= 4000,
+        'Add an instruction of up to 4,000 characters.',
+      );
     this.batch(
       actor,
       {
@@ -517,12 +549,16 @@ export class Store {
           const proposal = action === 'reject' || action === 'correct' ? null : tx.proposal;
           this.db
             .prepare(
-              'UPDATE transactions SET state=?,proposal=?,instruction=?,version=version+1,batchId=?,updatedAt=? WHERE id=?',
+              'UPDATE transactions SET state=?,proposal=?,instruction=?,notes=?,attention=?,version=version+1,batchId=?,updatedAt=? WHERE id=?',
             )
             .run(
               state,
               proposal ? JSON.stringify(proposal) : null,
-              action === 'correct' ? instruction : tx.instruction,
+              action === 'correct' ? instruction.trim() : tx.instruction,
+              JSON.stringify(
+                action === 'correct' ? this.withNote(tx, instruction, 'instruction') : tx.notes,
+              ),
+              action === 'correct' ? '' : tx.attention,
               batchId,
               now(),
               tx.id,
@@ -682,23 +718,89 @@ export class Store {
     });
   }
   enqueue(kind: AgentJob['kind'], payload: AgentJob['payload']): string {
-    if (kind === 'chat') {
-      invariant(payload.text?.trim(), 'Write an instruction.');
-      payload.mentionIds = this.resolveMentions(payload.text!, payload.mentionIds);
-    }
-    const id = randomUUID();
-    this.db.transaction(() => {
-      this.db
-        .prepare('INSERT INTO jobs(id,kind,payload,createdAt,updatedAt) VALUES (?,?,?,?,?)')
-        .run(id, kind, JSON.stringify(payload), now(), now());
-      if (kind === 'chat') this.addMessage('user', payload.text!, id);
-    })();
-    return id;
+    return this.db
+      .transaction(() => {
+        if (payload.ids) {
+          invariant(
+            new Set(payload.ids).size === payload.ids.length,
+            'Duplicate transaction selection.',
+          );
+          for (const id of payload.ids) {
+            invariant(
+              this.transaction(id).state !== 'finalized',
+              'Finalized transactions cannot be processed.',
+              403,
+            );
+          }
+        }
+        if (kind === 'chat') {
+          invariant(
+            payload.text?.trim() && payload.text.length <= 12000,
+            'Write an instruction of up to 12,000 characters.',
+          );
+          payload.text = payload.text!.trim();
+          payload.mentionIds = this.resolveMentions(payload.text, payload.mentionIds);
+          if (payload.ids?.length && payload.origin !== 'transaction') {
+            this.batch(
+              'user',
+              'Save chat context for ' + payload.ids.length + ' expenses',
+              payload.ids.map((id) => ({ table: 'transactions' as const, id })),
+              (batchId) => {
+                for (const id of payload.ids!) {
+                  const tx = this.transaction(id);
+                  this.db
+                    .prepare(
+                      'UPDATE transactions SET notes=?,version=version+1,batchId=?,updatedAt=? WHERE id=?',
+                    )
+                    .run(
+                      JSON.stringify(this.withNote(tx, payload.text!, 'chat')),
+                      batchId,
+                      now(),
+                      id,
+                    );
+                }
+              },
+            );
+          }
+          if (payload.ids)
+            payload.versions = payload.ids.map((id) => ({
+              id,
+              version: this.transaction(id).version,
+            }));
+        }
+        const id = randomUUID();
+        this.db
+          .prepare('INSERT INTO jobs(id,kind,payload,createdAt,updatedAt) VALUES (?,?,?,?,?)')
+          .run(id, kind, JSON.stringify(payload), now(), now());
+        if (kind === 'chat') this.addMessage('user', payload.text!, id, payload.ids);
+        return id;
+      })
+      .immediate();
   }
-  addMessage(role: Message['role'], text: string, jobId: string | null = null): void {
+  addMessage(
+    role: Message['role'],
+    text: string,
+    jobId: string | null = null,
+    transactionIds: string[] = [],
+  ): void {
+    // Keep batch progress from drowning out conversation history.
+    if (role === 'assistant' && jobId && this.job(jobId).kind === 'process') {
+      const previous = this.one<{ id: string }>(
+        "SELECT id FROM messages WHERE jobId=? AND role='assistant'",
+        jobId,
+      );
+      if (previous) {
+        this.db
+          .prepare('UPDATE messages SET text=?,createdAt=? WHERE id=?')
+          .run(text, now(), previous.id);
+        return;
+      }
+    }
     this.db
-      .prepare('INSERT INTO messages(id,role,text,jobId,createdAt) VALUES (?,?,?,?,?)')
-      .run(randomUUID(), role, text, jobId, now());
+      .prepare(
+        'INSERT INTO messages(id,role,text,jobId,transactionIds,createdAt) VALUES (?,?,?,?,?,?)',
+      )
+      .run(randomUUID(), role, text, jobId, JSON.stringify(transactionIds), now());
   }
   cancelJob(id: string): void {
     const job = this.job(id);
@@ -717,7 +819,7 @@ export class Store {
     );
     this.db
       .prepare(
-        "UPDATE jobs SET status='queued',cancelRequested=0,error='',leaseUntil=0,updatedAt=? WHERE id=?",
+        "UPDATE jobs SET status='queued',cancelRequested=0,error='',activity='',response='',leaseUntil=0,updatedAt=? WHERE id=?",
       )
       .run(now(), id);
   }
@@ -784,11 +886,17 @@ export class Store {
       batches: this.all<ActionBatch>(
         'SELECT id,sequence,label,actor,createdAt,undoneAt FROM action_batches ORDER BY sequence DESC',
       ),
-      jobs: this.all<{ id: string }>('SELECT id FROM jobs ORDER BY createdAt DESC LIMIT 20').map(
-        (j) => this.job(j.id),
-      ),
-      messages: this.all<Message>(
-        'SELECT * FROM (SELECT * FROM messages ORDER BY createdAt DESC LIMIT 100) ORDER BY createdAt',
+      jobs: this.all<{ id: string }>(
+        "SELECT id FROM jobs WHERE status IN ('queued','running') OR id IN (SELECT id FROM jobs ORDER BY createdAt DESC LIMIT 20) ORDER BY createdAt DESC",
+      ).map((j) => this.job(j.id)),
+      messages: this.all<Raw>(
+        'SELECT id,role,text,jobId,transactionIds,createdAt FROM (SELECT rowid AS messageOrder,* FROM messages ORDER BY createdAt DESC,rowid DESC LIMIT 100) ORDER BY createdAt,messageOrder',
+      ).map(
+        (m) =>
+          ({
+            ...m,
+            transactionIds: JSON.parse((m.transactionIds as string) || '[]'),
+          }) as unknown as Message,
       ),
       dashboard: calculateDashboard(transactions, people, repayments, from, to),
       imports: this.all(

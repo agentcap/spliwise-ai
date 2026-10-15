@@ -69,6 +69,7 @@ export const transactions = sqliteTable(
     attention: text().notNull().default(''),
     proposal: text(),
     instruction: text().notNull().default(''),
+    notes: text().notNull().default('[]'),
     version: integer().notNull().default(1),
     batchId: text(),
     updatedAt: text().notNull(),
@@ -118,6 +119,8 @@ export const jobs = sqliteTable('jobs', {
   progress: integer().notNull().default(0),
   cursor: integer().notNull().default(0),
   result: text().notNull().default(''),
+  activity: text().notNull().default(''),
+  response: text().notNull().default(''),
   error: text().notNull().default(''),
   cancelRequested: integer().notNull().default(0),
   leaseUntil: integer().notNull().default(0),
@@ -129,5 +132,6 @@ export const messages = sqliteTable('messages', {
   role: text().notNull(),
   text: text().notNull(),
   jobId: text(),
+  transactionIds: text().notNull().default('[]'),
   createdAt: text().notNull(),
 });

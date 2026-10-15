@@ -123,6 +123,15 @@ async function handle(req: Request, context: Context): Promise<Response> {
         .parse(body);
       return Response.json(service.addPerson(a.name, a.handle, a.relation));
     }
+    if (key === 'transactions/instruct') {
+      const a = z
+        .object({
+          items: z.array(itemSchema).min(1).max(100),
+          text: z.string().trim().min(1).max(4000),
+        })
+        .parse(body);
+      return Response.json({ id: service.instruct(a.items, a.text) });
+    }
     if (key === 'transactions/review') {
       const a = z
         .object({

@@ -23,13 +23,14 @@ import {
   CalendarDays,
   CreditCard,
   Leaf,
-  Send,
   RefreshCw,
   ReceiptText,
 } from 'lucide-react';
 import { money } from '@/lib/money';
 import type { Snapshot, Transaction, Rule, ImportPreview } from '@/lib/types';
-import MentionInput from './mention-input';
+import QuickInstruction from './quick-instruction';
+import TransactionContext from './transaction-context';
+import ChatPanel from './chat-panel';
 import ThemeToggle from './theme-toggle';
 import { api, Modal, ruleDescription, ActionErrorContext } from './ui';
 import { ImportDialog, PersonDialog, RepaymentDialog, SplitDialog, RuleDialog } from './dialogs';
@@ -57,6 +58,7 @@ export default function Workspace() {
     [repayPerson, setRepayPerson] = useState<string | null>(null),
     [personDetail, setPersonDetail] = useState<string | null>(null),
     [editTx, setEditTx] = useState<Transaction | null>(null),
+    [detailTxId, setDetailTxId] = useState<string | null>(null),
     [ruleEditor, setRuleEditor] = useState<Rule | 'new' | null>(null);
   const fetchData = useCallback(async () => {
     const q = new URLSearchParams();
@@ -161,14 +163,26 @@ export default function Workspace() {
     );
     setView('review');
   }
-  async function sendChat() {
-    if (!chat.trim()) return;
-    if (
-      await action(() =>
-        api('jobs', { kind: 'chat', text: chat, ids: selected.size ? [...selected] : undefined }),
-      )
-    )
-      setChat('');
+  async function sendChat(text: string) {
+    const ids = data?.transactions
+      .filter((t) => selected.has(t.id) && t.state !== 'finalized')
+      .map((t) => t.id);
+    if (selected.size && !ids?.length)
+      throw new Error(
+        'Select Inbox or Ready expenses to send instructions. Finalized expenses are read-only.',
+      );
+    await api('jobs', { kind: 'chat', text, ids: ids?.length ? ids : undefined });
+    await fetchData();
+  }
+  async function sendInstruction(tx: Transaction, text: string) {
+    await api('transactions/instruct', { items: [{ id: tx.id, version: tx.version }], text });
+    await fetchData();
+  }
+  async function cancelJob(id: string) {
+    await action(() => api('jobs/' + id + '/cancel', {}));
+  }
+  async function retryJob(id: string) {
+    await action(() => api('jobs/' + id + '/retry', {}));
   }
   if (!data)
     return (
@@ -182,11 +196,18 @@ export default function Workspace() {
       </div>
     );
   const d = data.dashboard;
+  const detailTx = data.transactions.find((t) => t.id === detailTxId);
   const filtered = data.transactions.filter(
     (t) =>
       (!from || t.date >= from) &&
       (!to || t.date <= to) &&
-      (!search || t.description.toLowerCase().includes(search.toLowerCase())) &&
+      (!search ||
+        [
+          t.description,
+          t.instruction,
+          t.proposal?.category || '',
+          ...t.notes.map((n) => n.text),
+        ].some((value) => value.toLowerCase().includes(search.toLowerCase()))) &&
       (!personFilter || t.proposal?.splits.some((s) => s.personId === personFilter)) &&
       (!accountFilter || t.accountId === accountFilter),
   );
@@ -266,7 +287,9 @@ export default function Workspace() {
           ])
         : 'none';
       const key =
-        t.batchId + '|' + t.description.replace(/\s+/g, ' ').toUpperCase() + '|' + pattern;
+        state === 'inbox'
+          ? t.id
+          : t.batchId + '|' + t.description.replace(/\s+/g, ' ').toUpperCase() + '|' + pattern;
       grouped.set(key, [...(grouped.get(key) || []), t]);
     }
     let lastBatch: string | null | undefined;
@@ -360,9 +383,10 @@ export default function Workspace() {
             ) : (
               <p className="needs-input">
                 <CircleHelp size={15} />
-                {t.instruction
-                  ? 'Correction queued: ' + t.instruction
-                  : t.attention || 'Tell the agent who should share this expense.'}
+                {t.attention ||
+                  (t.instruction
+                    ? 'Saved instruction: ' + t.instruction
+                    : 'Tell the agent who should share this expense.')}
               </p>
             )}
             {items.length > 1 && (
@@ -386,6 +410,18 @@ export default function Workspace() {
                   </div>
                 ))}
               </details>
+            )}
+            <TransactionContext transactions={items} />
+            {state === 'inbox' && (
+              <QuickInstruction
+                tx={t}
+                people={data!.people}
+                configured={data!.aiConfigured}
+                job={data!.jobs.find((j) => j.payload.ids?.includes(t.id))}
+                onSend={sendInstruction}
+                onCancel={cancelJob}
+                onRetry={retryJob}
+              />
             )}
             <footer className="card-actions">
               <button className="text-button" onClick={() => setEditTx(t)}>
@@ -1031,6 +1067,14 @@ export default function Workspace() {
                             <td>
                               <b>{t.description}</b>
                               <small>{t.proposal?.category}</small>
+                              {t.notes.length > 0 || t.instruction ? (
+                                <button
+                                  className="text-button saved-context-link"
+                                  onClick={() => setDetailTxId(t.id)}
+                                >
+                                  View saved context
+                                </button>
+                              ) : null}
                             </td>
                             <td>{t.date}</td>
                             <td>
@@ -1259,70 +1303,24 @@ export default function Workspace() {
           </main>
         </div>
         {chatOpen && (
-          <aside className="chat-panel">
-            <header>
-              <span className="stat-icon">
-                <Sparkles size={18} />
-              </span>
-              <div className="grow">
-                <h3>Your split assistant</h3>
-                <small>Proposes. You approve.</small>
-              </div>
-              <button
-                className="icon-button"
-                aria-label="Close chat"
-                onClick={() => setChatOpen(false)}
-              >
-                <X size={18} />
-              </button>
-            </header>
-            <div className="chat-messages">
-              {!data.aiConfigured && (
-                <div className="ai-setup">
-                  <b>Connect your AI</b>
-                  <p>
-                    Add your OpenAI API key using the setup instructions. Manual splits and approved
-                    rules already work.
-                  </p>
-                </div>
-              )}
-              {!data.messages.length && (
-                <div className="chat-welcome">
-                  <Sparkles />
-                  <h3>A little context goes a long way.</h3>
-                  <p>“Split these equally with @alex.”</p>
-                  <p>“Propose a rule for office lunches as my personal expense.”</p>
-                </div>
-              )}
-              {data.messages.map((m) => (
-                <div className={'chat-message ' + m.role} key={m.id}>
-                  <small>{m.role === 'user' ? 'You' : 'Splitwise AI'}</small>
-                  <p>{m.text}</p>
-                </div>
-              ))}
-            </div>
-            <div className="chat-compose">
-              {selected.size > 0 && <span className="pill">{selected.size} selected expenses</span>}
-              <MentionInput
-                value={chat}
-                onChange={setChat}
-                people={data.people}
-                label="Message the agent"
-                placeholder="Tell me how to split… Use @ to mention someone."
-              />
-              <div>
-                <small>AI can move Inbox ↔ Ready.</small>
-                <button
-                  className="primary icon-only"
-                  aria-label="Send instruction"
-                  disabled={!chat.trim() || loading || !!currentJob || !data.aiConfigured}
-                  onClick={sendChat}
-                >
-                  <Send size={16} />
-                </button>
-              </div>
-            </div>
-          </aside>
+          <ChatPanel
+            messages={data.messages}
+            jobs={data.jobs}
+            people={data.people}
+            transactions={data.transactions}
+            selected={data.transactions.filter(
+              (t) => selected.has(t.id) && t.state !== 'finalized',
+            )}
+            configured={data.aiConfigured}
+            draft={chat}
+            onDraftChange={setChat}
+            onSend={sendChat}
+            onClose={() => setChatOpen(false)}
+            onClearSelection={() => setSelected(new Set())}
+            onTransaction={setDetailTxId}
+            onCancel={cancelJob}
+            onRetry={retryJob}
+          />
         )}
         {loading && (
           <div className="working-indicator" aria-label="Saving">
@@ -1431,6 +1429,15 @@ export default function Workspace() {
                         <td>
                           <b>{e.description}</b>
                           <small>{e.date}</small>
+                          <button
+                            className="text-button saved-context-link"
+                            onClick={() => {
+                              setPersonDetail(null);
+                              setDetailTxId(e.transactionId);
+                            }}
+                          >
+                            View expense
+                          </button>
                         </td>
                         <td>{money(e.allocatedCents)}</td>
                         <td>{money(e.refundedCents)}</td>
@@ -1463,6 +1470,47 @@ export default function Workspace() {
               >
                 Record repayment
               </button>
+            </div>
+          </Modal>
+        )}
+        {detailTx && (
+          <Modal
+            title={detailTx.description}
+            subtitle={
+              detailTx.date +
+              ' · ' +
+              money(detailTx.amountCents) +
+              ' · ' +
+              (detailTx.state === 'finalized'
+                ? 'Finalized'
+                : detailTx.state === 'ready'
+                  ? 'Ready for review'
+                  : 'Inbox')
+            }
+            onClose={() => setDetailTxId(null)}
+          >
+            <div className="modal-body transaction-detail">
+              <p className="muted">
+                {data.accounts.find((a) => a.id === detailTx.accountId)?.name}
+              </p>
+              {detailTx.proposal && (
+                <>
+                  <h3>{detailTx.proposal.category}</h3>
+                  <div className="detail-splits">
+                    {detailTx.proposal.splits.map((share) => (
+                      <div key={share.personId}>
+                        <span>{data.people.find((p) => p.id === share.personId)?.name}</span>
+                        <b>{money(share.amountCents)}</b>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="explanation">{detailTx.proposal.explanation}</p>
+                </>
+              )}
+              <TransactionContext transactions={[detailTx]} expanded />
+              {!detailTx.notes.length && !detailTx.instruction && (
+                <p className="muted">No additional context has been saved for this expense.</p>
+              )}
             </div>
           </Modal>
         )}

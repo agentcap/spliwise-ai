@@ -119,3 +119,110 @@ test('upload, duplicate preview, rule review, bulk finalize, repayment, date fil
   );
   expect(errors).toEqual([]);
 });
+
+test('quick Enter instructions, mention selection, saved context, chat formatting and finalized lookup', async ({
+  page,
+  request,
+}) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  const person = await request.post('/api/people', {
+    data: { name: 'Riley', handle: 'riley', relation: 'Friend' },
+  });
+  expect(person.ok()).toBe(true);
+  const content =
+    'Date,Description,Amount\n06/01/2026,QUICK DINNER,40.00\n06/02/2026,QUICK MARKET,12.50';
+  const preview = await (
+    await request.post('/api/imports/preview', {
+      multipart: {
+        accountId: 'amex',
+        file: { name: 'quick-synthetic.csv', mimeType: 'text/csv', buffer: Buffer.from(content) },
+      },
+    })
+  ).json();
+  const imported = await (
+    await request.post('/api/imports/confirm', {
+      data: { id: preview.id, acknowledgeSkips: false, keepRows: [], skipInvalid: false },
+    })
+  ).json();
+  expect(imported.ids).toHaveLength(2);
+  const baseline = (await (await request.get('/api/state')).json()) as Snapshot;
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Review workspace', exact: false }).click();
+  await page.getByLabel('Search transactions').fill('QUICK DINNER');
+  const card = page
+    .locator('.transaction-card')
+    .filter({ has: page.getByRole('heading', { name: 'QUICK DINNER', exact: true }) });
+  const input = card.getByLabel('Instructions for QUICK DINNER');
+  await input.fill('Dinner after our hiking trip. Split equally with @ri');
+  await expect(card.getByRole('option')).toHaveCount(1);
+  await input.press('Enter');
+  await expect(input).toHaveValue('Dinner after our hiking trip. Split equally with @riley ');
+  expect(((await (await request.get('/api/state')).json()) as Snapshot).jobs).toHaveLength(
+    baseline.jobs.length,
+  );
+  await input.press('Enter');
+  await expect(card.getByRole('button', { name: 'Approve', exact: true })).toBeVisible({
+    timeout: 20000,
+  });
+  let state = (await (await request.get('/api/state')).json()) as Snapshot;
+  let dinner = state.transactions.find((t) => t.description === 'QUICK DINNER')!;
+  expect(dinner.state).toBe('ready');
+  expect(dinner.notes[0].text).toContain('hiking trip');
+  expect(state.dashboard.totalOutstandingCents).toBe(baseline.dashboard.totalOutstandingCents);
+  await card.locator('.transaction-context summary').click();
+  await expect(
+    card.getByText('Dinner after our hiking trip. Split equally with @riley', { exact: true }),
+  ).toBeVisible();
+  await card.getByRole('button', { name: 'Approve', exact: true }).click();
+  await page.getByRole('button', { name: 'Finalized', exact: true }).click();
+  await page.getByLabel('Search transactions').fill('hiking trip');
+  await page.getByRole('button', { name: 'View saved context', exact: true }).click();
+  await expect(
+    page
+      .getByRole('dialog')
+      .getByText('Dinner after our hiking trip. Split equally with @riley', { exact: true }),
+  ).toBeVisible();
+  await page.getByRole('button', { name: 'Close dialog' }).click();
+
+  await page.getByRole('button', { name: 'Review workspace', exact: false }).click();
+  await page.getByLabel('Search transactions').fill('QUICK MARKET');
+  await page.getByLabel('Select QUICK MARKET', { exact: true }).check();
+  await page.getByRole('button', { name: 'Ask AI', exact: true }).click();
+  const panel = page.getByRole('complementary', { name: 'Split assistant' });
+  await expect(panel.getByText('1 selected expense', { exact: true })).toBeVisible();
+  const chat = panel.getByLabel('Message the agent');
+  await chat.fill('This was for my balcony garden.');
+  await chat.press('Shift+Enter');
+  await expect(chat).toHaveValue('This was for my balcony garden.\n');
+  await chat.pressSequentially('Personal expense.');
+  await chat.press('Enter');
+  await expect(chat).toHaveValue('');
+  await expect(panel.locator('.chat-markdown strong').last()).toHaveText('1 split', {
+    timeout: 20000,
+  });
+  await expect
+    .poll(
+      async () => {
+        const snapshot = (await (await request.get('/api/state')).json()) as Snapshot;
+        return snapshot.transactions.find((t) => t.description === 'QUICK MARKET')?.state;
+      },
+      { timeout: 20000 },
+    )
+    .toBe('ready');
+  state = (await (await request.get('/api/state')).json()) as Snapshot;
+  const market = state.transactions.find((t) => t.description === 'QUICK MARKET')!;
+  expect(market.state).toBe('ready');
+  expect(market.notes[0].text).toContain('balcony garden');
+  expect(market.proposal?.splits).toHaveLength(1);
+  await panel.getByRole('button', { name: 'QUICK MARKET', exact: true }).last().click();
+  await expect(page.getByRole('dialog').getByText(/This was for my balcony garden/)).toBeVisible();
+  await page.getByRole('button', { name: 'Close dialog' }).click();
+  await page.getByRole('button', { name: 'Close chat' }).click();
+  await page.reload();
+  state = (await (await request.get('/api/state')).json()) as Snapshot;
+  dinner = state.transactions.find((t) => t.description === 'QUICK DINNER')!;
+  expect(dinner.state).toBe('finalized');
+  expect(dinner.notes[0].text).toContain('hiking trip');
+  expect(errors).toEqual([]);
+});

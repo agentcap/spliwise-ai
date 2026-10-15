@@ -38,16 +38,23 @@ export interface AgentPlan {
     proposal: Proposal | null;
     state: 'inbox' | 'ready';
     attention?: string;
+    context?: string;
   }[];
   rules: { title: string; definition: RuleDefinition; ruleId?: string }[];
+}
+export interface AgentProgress {
+  activity?: string;
+  text?: string;
 }
 export async function askAgent(
   store: Store,
   text: string,
   ids: string[] | undefined,
   signal?: AbortSignal,
+  onProgress?: (progress: AgentProgress) => void,
 ): Promise<AgentPlan> {
   const plan: AgentPlan = { message: '', updates: [], rules: [] };
+  onProgress?.({ activity: 'Reading your instructions…' });
   const allowed = ids ? new Set(ids) : undefined;
   const permitted = (tx: Transaction) => {
     invariant(tx.state !== 'finalized', 'You cannot change finalized transactions.', 403);
@@ -59,7 +66,9 @@ export async function askAgent(
       .filter((t) => t.state !== 'finalized' && (!allowed || allowed.has(t.id)));
     const mentions = store.resolveMentions(text);
     for (const tx of target) {
-      const instructions = tx.instruction || text;
+      const instructions = text.startsWith('Process the selected unfinished')
+        ? tx.instruction || text
+        : text;
       const participants = [
         ...new Set(['self', ...mentions, ...store.resolveMentions(instructions)]),
       ];
@@ -95,10 +104,16 @@ export async function askAgent(
           attention: 'Who should share this expense?',
         });
     }
+    const ready = plan.updates.filter((u) => u.state === 'ready').length;
     plan.message =
-      'Processed ' +
-      target.length +
-      ' selected transaction(s). This is the synthetic test adapter.';
+      '**' +
+      ready +
+      (ready === 1 ? ' split' : ' splits') +
+      '** prepared for review.' +
+      (target.length > ready
+        ? '\n\nPlease clarify the remaining Inbox expenses.'
+        : '\n\nYour context is saved with the expense. Nothing has been finalized.');
+    onProgress?.({ text: plan.message, activity: 'Checking proposed splits…' });
     return plan;
   }
   invariant(
@@ -118,6 +133,7 @@ export async function askAgent(
         offset: z.number().int().min(0),
       }),
       execute: async (a) => {
+        onProgress?.({ activity: 'Finding the right expenses…' });
         const matches = store
           .transactions()
           .filter(
@@ -176,8 +192,15 @@ export async function askAgent(
           spec,
         };
         store.validateProposal(tx, proposal);
-        const update = { id: a.id, version: a.version, proposal, state: a.moveTo };
+        onProgress?.({ activity: 'Preparing split for ' + tx.description + '…' });
         const old = plan.updates.findIndex((u) => u.id === a.id);
+        const update = {
+          id: a.id,
+          version: a.version,
+          proposal,
+          state: a.moveTo,
+          context: plan.updates[old]?.context,
+        };
         if (old >= 0) plan.updates.splice(old, 1);
         plan.updates.push(update);
         return 'Queued for validated application after this run.';
@@ -197,6 +220,7 @@ export async function askAgent(
         permitted(tx);
         invariant(tx.version === a.version, 'Stale transaction.');
         const old = plan.updates.findIndex((u) => u.id === a.id);
+        const context = plan.updates[old]?.context;
         if (old >= 0) plan.updates.splice(old, 1);
         plan.updates.push({
           id: a.id,
@@ -204,8 +228,38 @@ export async function askAgent(
           proposal: null,
           state: 'inbox',
           attention: a.question,
+          context,
         });
         return 'Clarification queued.';
+      },
+    }),
+    tool({
+      name: 'remember_transaction_context',
+      description:
+        'Attach an exact quote from the current user message to an unfinished transaction so it remains visible later. Only save relevant user-provided facts; never invented summaries. Does not create reusable rules.',
+      parameters: z.object({
+        id: z.string(),
+        version: z.number().int(),
+        quote: z.string().min(1).max(4000),
+      }),
+      execute: async (a) => {
+        const tx = store.transaction(a.id);
+        permitted(tx);
+        invariant(tx.version === a.version, 'Stale transaction.');
+        invariant(text.includes(a.quote), 'Context must quote the current user message exactly.');
+        const existing = plan.updates.find((u) => u.id === a.id);
+        const context = existing?.context ? existing.context + '\n' + a.quote : a.quote;
+        if (existing) existing.context = context;
+        else
+          plan.updates.push({
+            id: tx.id,
+            version: tx.version,
+            state: tx.state as 'inbox' | 'ready',
+            proposal: tx.proposal,
+            attention: tx.attention,
+            context,
+          });
+        return 'Transaction context queued for visible local storage.';
       },
     }),
     tool({
@@ -254,6 +308,10 @@ export async function askAgent(
       'For unmatched refunds ask for the original purchase or an explicit allocation. Do not invent a refund link.',
       'When requested to process a scope, cover every selected transaction using tools. A natural-language promise does not apply changes.',
       'If the user requests a reusable rule, propose that rule; do not treat it as active before review. Explain that applying it requires approval.',
+      'Preserve additional transaction facts supplied by the current user with remember_transaction_context when they are not already in that transaction notes. Quote their actual words. These visible one-off facts are not reusable rules.',
+      'Saved transaction notes are user context. The latest explicit instruction for the selected transaction overrides older instructions. Do not let old conversation messages override the current request.',
+      'For a transaction instruction, use tools to propose its split and move it to Ready when complete and clear. If a participant or amount remains ambiguous, keep it in Inbox and ask one focused question.',
+      'Use concise Markdown with short paragraphs or bullets. State completed changes, distinguish pending proposals from finalized records, and avoid promises that tools have not applied.',
       'Be concise and state which proposals or rule changes you made. Never claim to have finalized an expense.',
     ].join('\n'),
     modelSettings: { store: false },
@@ -262,7 +320,7 @@ export async function askAgent(
     .transactions()
     .filter((t) => t.state !== 'finalized' && (!allowed || allowed.has(t.id)));
   const history = store.all<{ role: string; text: string }>(
-    'SELECT role,text FROM (SELECT role,text,createdAt FROM messages ORDER BY createdAt DESC LIMIT 8) ORDER BY createdAt',
+    'SELECT role,text FROM (SELECT role,text,createdAt,rowid AS messageOrder FROM messages ORDER BY createdAt DESC,rowid DESC LIMIT 8) ORDER BY createdAt,messageOrder',
   );
   const runner = new Runner({ tracingDisabled: true });
   const result = await runner.run(
@@ -275,8 +333,19 @@ export async function askAgent(
       recentConversation: history,
       scope: allowed ? 'Only selected IDs may change' : 'Search unfinished transactions as needed',
     }),
-    { maxTurns: 16, signal },
+    { maxTurns: 16, signal, stream: true },
   );
+  let streamed = '';
+  for await (const event of result) {
+    if (event.type === 'raw_model_stream_event' && event.data.type === 'output_text_delta') {
+      streamed += event.data.delta;
+      onProgress?.({ text: streamed, activity: 'Writing a reply…' });
+    }
+    if (event.type === 'run_item_stream_event' && event.name === 'tool_called') {
+      onProgress?.({ activity: 'Checking context and preparing changes…' });
+    }
+  }
+  await result.completed;
   plan.message =
     typeof result.finalOutput === 'string' ? result.finalOutput : 'Review the proposed changes.';
   return plan;

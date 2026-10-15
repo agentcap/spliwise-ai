@@ -39,6 +39,16 @@ Without a key, imports, approved rules, manual splits, review, repayments, and r
 
 The app starts in **Dracula Classic** dark mode using the [official palette](https://draculatheme.com/spec). The top-bar theme switch changes between Dracula and the original light theme; your browser remembers the choice across reloads.
 
+## Quick instructions and chat
+
+Every Inbox expense has an instruction box. Type a split and any useful context, then press **Enter** to process that expense immediately. **Shift+Enter** adds a line. Use **@** to choose a person; Enter first accepts the highlighted mention. Clear instructions become proposals in Ready for review; ambiguous ones stay in Inbox with a question.
+
+The complete instruction is saved under **Saved context**, including details such as what a purchase was for or which trip it belonged to. Earlier notes remain available when you add a follow-up. Context is searchable and remains visible after finalization through **View saved context**. Transaction context is one-off; reusable rules still require visible approval.
+
+Chat supports Markdown replies, growing input, Enter-to-send, live reply text and activity, queued requests, Stop/Retry, and links back to the relevant expense. It opens at the latest message and lets you read older messages without being pulled back down. Selected unfinished expenses scope a request; their full chat instructions are attached as context. For unselected requests, the agent can attach relevant exact quotes from your message to unfinished expenses. AI still cannot modify finalized expenses.
+
+Conversation and context timestamps default to **America/Los_Angeles**. Set **NEXT_PUBLIC_TIME_ZONE** before starting if you use another timezone.
+
 ## Workflow
 
 1. **Add people.** Choose a unique @handle and an optional relationship. Mention autocomplete supports arrow keys and Enter. Mentions resolve to stable person IDs.
@@ -101,6 +111,7 @@ All routes start with **/api**. Mutation bodies are JSON except multipart previe
 | GET    | /imports/:id                         | Retained row decisions and payment history                          |
 | POST   | /imports/confirm                     | Preview ID, skip acknowledgements, retained duplicate row numbers   |
 | POST   | /people                              | Name, unique handle, relationship                                   |
+| POST   | /transactions/instruct               | Save Inbox instruction/context and queue that expense atomically    |
 | POST   | /transactions/proposal               | Manual split/category, expected version, optional original purchase |
 | POST   | /transactions/review                 | Atomic approve/reject/reopen/correct with IDs and expected versions |
 | POST   | /rules/propose                       | New/edit rule proposal                                              |

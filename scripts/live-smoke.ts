@@ -14,12 +14,24 @@ const preview = store.preview(
   'Date,Description,Amount\n01/01/2026,SYNTHETIC CAFE,10.00',
 );
 const { ids } = store.confirmImport(preview.id, false);
-const result = await askAgent(
-  store,
-  'Split the selected expense equally between @me and @synthetic_alex.',
-  ids,
+const instruction =
+  'Split the selected expense equally between @me and @synthetic_alex. This was lunch during our synthetic hiking trip.';
+store.instruct(
+  ids.map((id) => ({ id, version: store.transaction(id).version })),
+  instruction,
 );
+let streamedText = false;
+const result = await askAgent(store, instruction, ids, undefined, (event) => {
+  if (event.text) streamedText = true;
+});
 if (!result.updates.length || result.updates[0].proposal?.splits.length !== 2)
   throw new Error('Expected a two-person split.');
+if (!streamedText) throw new Error('Expected streamed reply text.');
+store.saveProposals(result.updates, 'agent');
+if (
+  store.transaction(ids[0]).state !== 'ready' ||
+  !store.transaction(ids[0]).notes.some((n) => n.text.includes('hiking trip'))
+)
+  throw new Error('Expected a reviewable split with preserved transaction context.');
 console.log('Live agent smoke test passed with synthetic data. No financial records were saved.');
 db.close();
