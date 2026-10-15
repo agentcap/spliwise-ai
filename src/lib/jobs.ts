@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import { Features, displayMerchant } from './features';
 import { config } from './config';
 import type { Store } from './store';
 import { askAgent, type AgentPlan } from './agent';
@@ -53,6 +54,12 @@ export function applyStep(
           409,
         );
       if (job.cursor !== cursor) return;
+      for (const u of plan.updates)
+        invariant(
+          !job.payload.ids || job.payload.ids.includes(u.id),
+          'Agent result is outside the selected scope.',
+          403,
+        );
       const updates = plan.updates.filter((u) => {
         const t = store.transaction(u.id);
         return t.state !== 'finalized' && t.version === u.version;
@@ -147,7 +154,17 @@ export async function executeJob(store: Store, job: AgentJob, signal?: AbortSign
           });
           continue;
         }
-        const matched = ruleProposal(tx, store.rules());
+        const features = new Features(store);
+        if (tx.tripId && features.trip(tx.tripId).context) {
+          needsAI.push(tx.id);
+          continue;
+        }
+        const trip = features.tripProposal(tx);
+        const canonical = displayMerchant(tx.description, features.aliases());
+        const matched =
+          trip.proposal || trip.error
+            ? trip
+            : ruleProposal({ ...tx, description: tx.description + ' ' + canonical }, store.rules());
         if (matched.proposal || matched.error)
           plan.updates.push({
             id: tx.id,

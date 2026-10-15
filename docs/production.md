@@ -64,7 +64,7 @@ Your local database is never automatically assigned to an internet account. To m
 3. Run **npm run workspace:adopt -- --email YOUR_VERIFIED_EMAIL --source /private/local.sqlite --confirm** with the production environment loaded.
 4. Restart and verify balances. The source is preserved. Adoption refuses a destination that already has financial data, rules or additional people; use reviewed JSON import to merge instead.
 
-Each ledger remains USD-only, with the signed-in person as payer. Shared logins, shared workspaces, multiple payers and currency conversion are outside this private release.
+Each ledger remains USD-only, with the signed-in person as payer. Trips, split templates, merchant aliases, manual source rows and receipt bytes are stored inside that same ledger, so online backups and workspace deletion cover them together. Receipt metadata and downloads are authenticated against the session workspace; receipt bytes are never added to model prompts. Shared logins, shared workspaces, multiple payers and currency conversion are outside this private release.
 
 ## Budgets, limits and model changes
 

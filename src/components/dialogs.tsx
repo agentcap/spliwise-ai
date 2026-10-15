@@ -613,11 +613,13 @@ export function RuleDialog({
             Card scope
             <select value={accountId} onChange={(e) => setAccountId(e.target.value)}>
               <option value="">All cards</option>
-              {data.accounts.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.name}
-                </option>
-              ))}
+              {data.accounts
+                .filter((a) => a.id !== 'manual')
+                .map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
             </select>
           </label>
           <label>
@@ -940,11 +942,13 @@ export function ImportDialog({
             <label>
               Which card is this statement for?
               <select value={account} onChange={(e) => setAccount(e.target.value)}>
-                {data.accounts.map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                  </option>
-                ))}
+                {data.accounts
+                  .filter((a) => a.id !== 'manual')
+                  .map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
               </select>
             </label>
             <label className="upload-zone">

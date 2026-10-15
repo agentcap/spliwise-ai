@@ -30,8 +30,10 @@ export interface Proposal {
   splits: Share[];
   category: string;
   confidence: Confidence;
-  source: 'rule' | 'instruction' | 'inference' | 'refund' | 'manual';
+  source: 'rule' | 'instruction' | 'inference' | 'refund' | 'manual' | 'trip';
   explanation: string;
+  tripId?: string;
+  tripVersion?: number;
   ruleId?: string;
   ruleVersion?: number;
   refundOf?: string;
@@ -44,6 +46,8 @@ export interface TransactionNote {
   createdAt: string;
 }
 export interface Transaction {
+  tripId?: string | null;
+  source?: string;
   id: string;
   accountId: string;
   importRowId: string;
@@ -174,6 +178,7 @@ export interface AgentJob {
     text?: string;
     mentionIds?: string[];
     origin?: 'transaction';
+    tripId?: string;
     versions?: { id: string; version: number }[];
   };
   status: 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
@@ -232,6 +237,11 @@ export interface Dashboard {
   months: { month: string; amountCents: number }[];
 }
 export interface Snapshot {
+  trips?: TripSummary[];
+  templates?: SplitTemplate[];
+  aliases?: MerchantAlias[];
+  onboardingDismissed?: boolean;
+  lastSplit?: SplitSpec | null;
   pagination?: {
     page: number;
     size: number;
@@ -241,7 +251,7 @@ export interface Snapshot {
     finalized: number;
     imports?: number;
   };
-  workspace?: { production: boolean; timezone: string; consentAt: string | null };
+  workspace?: { id?: string; production: boolean; timezone: string; consentAt: string | null };
   people: Person[];
   accounts: Account[];
   categories: Category[];
@@ -261,4 +271,45 @@ export interface Snapshot {
     summary: string;
   }[];
   aiConfigured: boolean;
+}
+
+export interface Trip {
+  id: string;
+  name: string;
+  destination: string;
+  from: string;
+  to: string;
+  participants: string[];
+  split: SplitSpec;
+  context: string;
+  status: 'active' | 'archived';
+  version: number;
+  createdAt: string;
+}
+export interface TripSummary extends Trip {
+  count: number;
+  unfinished: number;
+  totalCents: number;
+  yourShareCents: number;
+}
+export interface SplitTemplate {
+  id: string;
+  name: string;
+  spec: SplitSpec;
+  category: string;
+  version: number;
+}
+export interface MerchantAlias {
+  id: string;
+  pattern: string;
+  name: string;
+  version: number;
+}
+export interface Attachment {
+  id: string;
+  transactionId: string;
+  name: string;
+  mime: string;
+  size: number;
+  createdAt: string;
 }

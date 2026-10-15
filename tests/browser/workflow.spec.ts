@@ -774,3 +774,193 @@ test('settings persist privacy and time zone, add card accounts, download full d
   expect(state.repayments.filter((r) => r.personId === person.id)).toHaveLength(1);
   expect(errors).toEqual([]);
 });
+
+test('trips and modern review support suggested assignments, manual cash, receipts, settlement and archive', async ({
+  page,
+  request,
+}) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  const person = await (
+    await request.post('/api/people', {
+      data: { name: 'Jordan Trip', handle: 'jordan_trip', relation: 'Friend' },
+    })
+  ).json();
+  const preview = await (
+    await request.post('/api/imports/preview', {
+      multipart: {
+        accountId: 'amex',
+        file: {
+          name: 'trip-synthetic.csv',
+          mimeType: 'text/csv',
+          buffer: Buffer.from(
+            'Date,Description,Amount\n04/01/2028,TRIP HOTEL,100.00\n04/02/2028,TRIP DINNER,60.00\n03/01/2028,EARLY FLIGHT,90.00',
+          ),
+        },
+      },
+    })
+  ).json();
+  await request.post('/api/imports/confirm', {
+    data: { id: preview.id, acknowledgeSkips: false, keepRows: [], skipInvalid: false },
+  });
+  await page.goto('/?view=trips');
+  await page.getByRole('button', { name: 'New trip', exact: true }).click();
+  let dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Trip name', { exact: true }).fill('Yosemite 2028');
+  await dialog.getByLabel('Destination', { exact: true }).fill('Yosemite');
+  await dialog.getByLabel('Trip start').fill('2028-04-01');
+  await dialog.getByLabel('Trip end').fill('2028-04-03');
+  await dialog.getByRole('checkbox', { name: 'Jordan Trip', exact: true }).check();
+  await dialog.getByRole('button', { name: 'Create trip', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Yosemite 2028', exact: true })).toBeVisible();
+  await expect(
+    page.getByRole('checkbox', { name: 'Assign EARLY FLIGHT', exact: true }),
+  ).toHaveCount(0);
+  await page.getByRole('checkbox', { name: 'Select all trip suggestions' }).check();
+  await page.getByRole('button', { name: 'Assign 2 selected', exact: true }).click();
+  await expect(page.getByText('2 assigned expenses · 2 unfinished', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Add manual expense', exact: true }).click();
+  dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Description', { exact: true }).fill('CASH MUSEUM');
+  await dialog.getByLabel('Expense amount (USD)').fill('20.00');
+  await dialog.getByLabel('Expense date', { exact: true }).fill('2028-04-02');
+  await dialog.getByLabel('Expense notes').fill('Museum tickets I paid in cash.');
+  await dialog.getByRole('button', { name: 'Add to Inbox', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Review workspace', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Process Inbox', exact: true }).click();
+  await expect
+    .poll(async () => {
+      const s = (await (await request.get('/api/state')).json()) as Snapshot;
+      return s.transactions.filter((t) => t.tripId && t.state === 'ready').length;
+    })
+    .toBe(3);
+  await expect(page.locator('.review-column.ready .transaction-card')).toHaveCount(3);
+  await page.getByLabel('Select all Ready', { exact: true }).check();
+  await page.getByRole('button', { name: 'Approve 3', exact: true }).click();
+  let snapshot = (await (await request.get('/api/state')).json()) as Snapshot;
+  const trip = snapshot.trips!.find((t) => t.name === 'Yosemite 2028')!;
+  expect(trip.totalCents).toBe(18000);
+  expect(snapshot.transactions.find((t) => t.description === 'EARLY FLIGHT')?.tripId).toBeNull();
+  await page.getByRole('button', { name: 'Finalized', exact: true }).click();
+  await page.getByLabel('Search transactions').fill('CASH MUSEUM');
+  await page.getByRole('button', { name: 'View saved context', exact: true }).click();
+  dialog = page.getByRole('dialog');
+  await dialog
+    .getByLabel('Attach receipt')
+    .setInputFiles({
+      name: 'museum.pdf',
+      mimeType: 'application/pdf',
+      buffer: Buffer.from('%PDF-1.4\nSynthetic museum receipt\n%%EOF'),
+    });
+  await expect(dialog.getByRole('link', { name: /museum.pdf/ })).toBeVisible();
+  const tx = snapshot.transactions.find((t) => t.description === 'CASH MUSEUM')!;
+  let files = await (await request.get('/api/transaction-files/' + tx.id)).json();
+  expect((await request.get('/api/attachments/' + files[0].id)).headers()['content-type']).toBe(
+    'application/pdf',
+  );
+  await dialog.getByRole('button', { name: 'Remove receipt museum.pdf', exact: true }).click();
+  await expect(dialog.getByRole('link', { name: /museum.pdf/ })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Close dialog', exact: true }).click();
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  await page.getByRole('button', { name: 'View saved context', exact: true }).click();
+  await expect(page.getByRole('dialog').getByRole('link', { name: /museum.pdf/ })).toBeVisible();
+  await page.screenshot({ path: 'test-results/modern-receipt-drawer.png', fullPage: false });
+  await page.getByRole('button', { name: 'Close dialog', exact: true }).click();
+  await request.post('/api/repayments', {
+    data: {
+      personId: person.id,
+      date: '2028-05-01',
+      amountCents: 2500,
+      direction: 'received',
+      note: 'Synthetic',
+      requestId: crypto.randomUUID(),
+    },
+  });
+  const settlement = await request.get('/api/settlements/' + person.id + '?trip=' + trip.id);
+  expect(await settlement.text()).toContain('$65.00');
+  await page.goto('/?view=trips&trip=' + trip.id);
+  await expect(page.getByRole('heading', { name: 'Yosemite 2028', exact: true })).toBeVisible();
+  const download = page.waitForEvent('download');
+  await page.getByRole('link', { name: 'Export trip JSON', exact: true }).click();
+  const bundle = JSON.parse(await readFile((await (await download).path())!, 'utf8'));
+  expect(bundle.transactions).toHaveLength(3);
+  await page.getByRole('button', { name: 'Archive trip', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Reopen trip', exact: true })).toBeVisible();
+  await page.screenshot({ path: 'test-results/modern-trip.png', fullPage: true });
+  await page.setViewportSize({ width: 390, height: 844 });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: 'test-results/modern-trip-mobile.png', fullPage: true });
+  expect(errors).toEqual([]);
+});
+
+test('templates and saved views work with merchant aliases, refresh, Back, grouped instructions and new themes', async ({
+  page,
+  request,
+}) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await request.post('/api/people', {
+    data: { name: 'Morgan Template', handle: 'morgan_template', relation: 'Roommate' },
+  });
+  await page.goto('/?view=rules');
+  await page.getByRole('button', { name: 'New template', exact: true }).click();
+  let dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Template name').fill('Dinner with Morgan');
+  await dialog.getByRole('checkbox', { name: 'Morgan Template', exact: true }).check();
+  await dialog.getByRole('button', { name: 'Save template', exact: true }).click();
+  await expect(page.getByText('Dinner with Morgan', { exact: true })).toBeVisible();
+  await page.getByLabel('Statement contains', { exact: true }).fill('TST* MODERN CAFE');
+  await page.getByLabel('Display as', { exact: true }).fill('Modern Cafe');
+  await page.getByRole('button', { name: 'Save merchant name', exact: true }).click();
+  const preview = await (
+    await request.post('/api/imports/preview', {
+      multipart: {
+        accountId: 'amex',
+        file: {
+          name: 'template-synthetic.csv',
+          mimeType: 'text/csv',
+          buffer: Buffer.from(
+            'Date,Description,Amount\n05/01/2028,TST* MODERN CAFE 003,20.00\n05/02/2028,TST* MODERN CAFE 003,40.00',
+          ),
+        },
+      },
+    })
+  ).json();
+  await request.post('/api/imports/confirm', {
+    data: { id: preview.id, acknowledgeSkips: false, keepRows: [], skipInvalid: false },
+  });
+  await page.getByRole('button', { name: 'Review workspace', exact: true }).click();
+  await page.getByLabel('Search transactions').fill('Modern Cafe');
+  const card = page
+    .locator('.transaction-card')
+    .filter({ has: page.getByRole('heading', { name: 'Modern Cafe', exact: true }) });
+  await expect(card).toHaveCount(1);
+  await expect(card.getByText('See all 2 expenses', { exact: false })).toBeVisible();
+  await page.getByRole('button', { name: 'Save view', exact: true }).click();
+  dialog = page.getByRole('dialog');
+  await dialog.getByLabel('View name').fill('Cafe review');
+  await dialog.getByRole('button', { name: 'Save view', exact: true }).click();
+  await page.reload();
+  await expect(page.getByLabel('Search transactions')).toHaveValue('Modern Cafe');
+  await expect(page.getByRole('button', { name: 'Cafe review', exact: true })).toBeVisible();
+  await card.getByRole('button', { name: 'Split equally', exact: true }).click();
+  dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Use a template').selectOption({ label: 'Dinner with Morgan' });
+  await dialog.getByRole('button', { name: 'Prepare 2 splits', exact: true }).click();
+  await expect(card.getByRole('button', { name: 'Approve 2', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Overview', exact: true }).click();
+  await page.goBack();
+  await expect(page.getByRole('heading', { name: 'Review workspace', exact: true })).toBeVisible();
+  await expect(page.getByLabel('Search transactions')).toHaveValue('Modern Cafe');
+  await page.getByRole('button', { name: 'Switch to light theme', exact: true }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
+  await page.screenshot({ path: 'test-results/modern-review-light.png', fullPage: true });
+  await page.getByRole('button', { name: 'Switch to dark theme', exact: true }).click();
+  await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole('button', { name: /Ready for review ·/ }).click();
+  await expect(card.getByRole('button', { name: 'Approve 2', exact: true })).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: 'test-results/modern-review-mobile.png', fullPage: true });
+  expect(errors).toEqual([]);
+});

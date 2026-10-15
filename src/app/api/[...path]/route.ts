@@ -1,3 +1,5 @@
+import { featureRequest } from '@/lib/feature-api';
+import { Features } from '@/lib/features';
 import { randomUUID } from 'node:crypto';
 import { authenticate, secureCookie, SESSION_COOKIE } from '@/lib/auth';
 import { workspaceStore, closeInactiveWorkspaces } from '@/lib/workspaces';
@@ -57,6 +59,8 @@ async function handle(req: Request, context: Context, requestId: string): Promis
         rateLimit(controlDb(), identity, 'uploads', 10);
     }
     const service = workspaceStore(principal);
+    const featureResponse = await featureRequest(service, key, req);
+    if (featureResponse) return featureResponse;
     if (key === 'settings' && req.method === 'GET')
       return Response.json(
         {
@@ -80,6 +84,7 @@ async function handle(req: Request, context: Context, requestId: string): Promis
         const format = z.enum(['json', 'csv']).parse(url.searchParams.get('format') || 'json');
         invariant(kind === 'transactions' || format === 'json', 'Rules are exported as JSON.');
         const bundle = new DataTransfer(service).export(kind, {
+          tripId: url.searchParams.get('trip') || undefined,
           from: url.searchParams.get('from') || undefined,
           to: url.searchParams.get('to') || undefined,
           state: url.searchParams.get('state') || undefined,
@@ -174,6 +179,7 @@ async function handle(req: Request, context: Context, requestId: string): Promis
                   page: Number(url.searchParams.get('page') || 0),
                   search: url.searchParams.get('search') || undefined,
                   accountId: url.searchParams.get('account') || undefined,
+                  tripId: url.searchParams.get('trip') || undefined,
                   personId: url.searchParams.get('person') || undefined,
                 }
               : undefined,
@@ -456,13 +462,27 @@ async function handle(req: Request, context: Context, requestId: string): Promis
       const a = z
         .object({
           kind: z.enum(['process', 'chat']),
+          tripId: z.string().optional(),
           text: z.string().max(12000).optional(),
           ids: z.array(z.string()).max(50000).optional(),
           mentionIds: z.array(z.string()).optional(),
         })
         .parse(body);
+      if (a.tripId) new Features(service).trip(a.tripId);
+      if (a.tripId && a.ids)
+        invariant(
+          a.ids.every((id) => service.transaction(id).tripId === a.tripId),
+          'An expense is outside this trip.',
+          403,
+        );
       const ids =
         a.ids ||
+        (a.tripId
+          ? service
+              .unfinishedTransactions()
+              .filter((t) => t.tripId === a.tripId)
+              .map((t) => t.id)
+          : undefined) ||
         (a.kind === 'process'
           ? service
               .transactions()
@@ -475,7 +495,12 @@ async function handle(req: Request, context: Context, requestId: string): Promis
           invariant(tx.state !== 'finalized', 'Finalized transactions cannot be processed.', 403);
         }
       return Response.json({
-        id: service.enqueue(a.kind, { ids, text: a.text, mentionIds: a.mentionIds }),
+        id: service.enqueue(a.kind, {
+          ids,
+          text: a.text,
+          mentionIds: a.mentionIds,
+          tripId: a.tripId,
+        }),
       });
     }
     if (path[0] === 'jobs' && path[2] === 'cancel') {

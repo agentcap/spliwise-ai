@@ -1,6 +1,7 @@
 import { randomUUID, createHash } from 'node:crypto';
 import type { Sqlite } from '../db';
 import { invariant, AppError } from './errors';
+import { Features } from './features';
 import { config } from './config';
 import { queryLedger, type LedgerQuery } from './ledger-query';
 import { isoDate, linkedRefundShares, cents, splitAmount } from './money';
@@ -34,7 +35,15 @@ import type {
 } from './types';
 type Raw = Record<string, unknown>;
 type Undo = {
-  table: 'transactions' | 'rules' | 'rule_changes' | 'repayments';
+  table:
+    | 'transactions'
+    | 'rules'
+    | 'rule_changes'
+    | 'repayments'
+    | 'trips'
+    | 'split_templates'
+    | 'merchant_aliases'
+    | 'attachments';
   id: string;
   before: Raw | null;
 };
@@ -212,7 +221,16 @@ export class Store {
         for (const entry of entries.reverse()) {
           // The table name comes only from our fixed internal allowlist.
           invariant(
-            ['transactions', 'rules', 'rule_changes', 'repayments'].includes(entry.table),
+            [
+              'transactions',
+              'rules',
+              'rule_changes',
+              'repayments',
+              'trips',
+              'split_templates',
+              'merchant_aliases',
+              'attachments',
+            ].includes(entry.table),
             'Invalid undo record.',
           );
           if (!entry.before)
@@ -220,13 +238,30 @@ export class Store {
           else {
             const cols = Object.keys(entry.before).filter((c) => c !== 'id');
             const values = cols.map((c) => entry.before![c]);
-            if (entry.table === 'transactions') {
+            if (
+              ['transactions', 'trips', 'split_templates', 'merchant_aliases'].includes(entry.table)
+            ) {
               const index = cols.indexOf('version');
               const current = this.one<{ version: number }>(
-                'SELECT version FROM transactions WHERE id=?',
+                'SELECT version FROM ' + entry.table + ' WHERE id=?',
                 entry.id,
               );
-              values[index] = (current?.version || 0) + 1;
+              values[index] =
+                Math.max(Number(entry.before?.version || 0), current?.version || 0) + 1;
+            }
+            if (!this.one('SELECT id FROM ' + entry.table + ' WHERE id=?', entry.id)) {
+              this.db
+                .prepare(
+                  'INSERT INTO ' +
+                    entry.table +
+                    ' (id,' +
+                    cols.map((c) => '"' + c + '"').join(',') +
+                    ') VALUES (' +
+                    [entry.id, ...values].map(() => '?').join(',') +
+                    ')',
+                )
+                .run(entry.id, ...values);
+              continue;
             }
             this.db
               .prepare(
@@ -237,6 +272,23 @@ export class Store {
                   ' WHERE id=?',
               )
               .run(...values, entry.id);
+          }
+        }
+        for (const entry of entries) {
+          if (entry.table !== 'transactions' || !entry.before?.proposal) continue;
+          const proposal = JSON.parse(String(entry.before.proposal)) as Proposal;
+          const oldTrip = entries.find(
+            (e) => e.table === 'trips' && e.id === proposal.tripId,
+          )?.before;
+          if (oldTrip && proposal.tripVersion === oldTrip.version) {
+            const trip = this.one<{ version: number }>(
+              'SELECT version FROM trips WHERE id=?',
+              proposal.tripId,
+            );
+            if (trip)
+              this.db
+                .prepare('UPDATE transactions SET proposal=? WHERE id=?')
+                .run(JSON.stringify({ ...proposal, tripVersion: trip.version }), entry.id);
           }
         }
         this.db.prepare('UPDATE action_batches SET undoneAt=? WHERE id=?').run(now(), last.id);
@@ -320,6 +372,7 @@ export class Store {
     });
   }
   preview(accountId: string, fileName: string, content: string): ImportPreview {
+    invariant(accountId !== 'manual', 'Manual expenses do not accept statement uploads.');
     const account = this.one<Account>('SELECT * FROM accounts WHERE id=?', accountId);
     invariant(account, 'Choose a card account.');
     const rows = this.previewRows(accountId, parseStatement(content, account.format));
@@ -587,6 +640,14 @@ export class Store {
       'Split amounts must add up to the transaction amount.',
     );
     invariant(['high', 'medium', 'low'].includes(p.confidence), 'Invalid confidence.');
+    if (p.tripId && finalizing) {
+      const trip = new Features(this).trip(p.tripId);
+      invariant(
+        trip.status === 'active' && trip.version === p.tripVersion && tx.tripId === p.tripId,
+        'Trip changed. Generate a new split before approving.',
+        409,
+      );
+    }
     if (p.ruleId && finalizing) {
       const rule = this.rules().find((r) => r.id === p.ruleId);
       invariant(
@@ -1456,9 +1517,10 @@ export class Store {
       people = this.people(),
       repayments = this.all<Repayment>('SELECT * FROM repayments ORDER BY date DESC,id');
     return {
+      ...new Features(this).snapshot(),
       people,
       pagination: ledger?.pagination,
-      workspace: { production: config().production, ...this.settings() },
+      workspace: { id: this.workspaceId, production: config().production, ...this.settings() },
       accounts: this.all<Account>('SELECT * FROM accounts'),
       categories: this.all<Category>('SELECT * FROM categories ORDER BY name'),
       transactions,

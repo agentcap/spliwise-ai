@@ -234,11 +234,24 @@ export default function SettingsDialog({
               <h3>Your data</h3>
               <p>
                 Download a complete SQLite copy containing transactions, source rows, splits, rules,
-                repayments, chat and Undo history. Keep this file private.
+                repayments, trips, templates, merchant names, receipts, chat and Undo history. Keep
+                this file private.
               </p>
               <a className="quiet-button auth-link" href="/api/account/export">
                 Download full workspace
               </a>
+              <button
+                className="quiet-button"
+                disabled={busy}
+                onClick={() =>
+                  void save(
+                    () => api('onboarding', { dismissed: false }),
+                    'Getting-started guide restored on Overview.',
+                  )
+                }
+              >
+                Show getting-started guide
+              </button>
               <p className="muted">
                 Transaction and rule exports in JSON or CSV remain available from Import / export.
               </p>

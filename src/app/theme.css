@@ -1,47 +1,47 @@
-/* Dracula Classic: https://draculatheme.com/spec */
+/* Midnight: neutral navy surfaces with a restrained blue accent. */
 :root {
   color-scheme: light;
 }
 
 html[data-theme='dark'] {
   color-scheme: dark;
-  --dracula-background: #282a36;
-  --dracula-current-line: #6272a4;
-  --dracula-selection: #44475a;
-  --dracula-foreground: #f8f8f2;
-  --dracula-red: #ff5555;
-  --dracula-orange: #ffb86c;
-  --dracula-yellow: #f1fa8c;
-  --dracula-green: #50fa7b;
-  --dracula-cyan: #8be9fd;
-  --dracula-purple: #bd93f9;
-  --dracula-pink: #ff79c6;
-  --dracula-background-light: #343746;
-  --dracula-background-dark: #21222c;
-  --dracula-background-darker: #191a21;
-  --bg: var(--dracula-background);
-  --paper: var(--dracula-background-light);
-  --ink: var(--dracula-foreground);
-  /* Lift small secondary labels above Dracula's decorative comment color for readability. */
+  --midnight-background: #0c111b;
+  --midnight-current-line: #60718f;
+  --midnight-selection: #27344a;
+  --midnight-foreground: #edf2fa;
+  --midnight-red: #fb7185;
+  --midnight-orange: #e9ad64;
+  --midnight-yellow: #edc678;
+  --midnight-green: #5fd1a5;
+  --midnight-cyan: #78b8ed;
+  --midnight-purple: #829bff;
+  --midnight-pink: #c79de8;
+  --midnight-background-light: #141c2b;
+  --midnight-background-dark: #101725;
+  --midnight-background-darker: #080d16;
+  --bg: var(--midnight-background);
+  --paper: var(--midnight-background-light);
+  --ink: var(--midnight-foreground);
+  /* Lift small secondary labels above Midnight's decorative comment color for readability. */
   --muted: color-mix(in srgb, var(--ink) 72%, var(--bg));
-  --line: var(--dracula-selection);
-  --green: var(--dracula-purple);
-  --mint: var(--dracula-selection);
-  --sidebar: var(--dracula-background-dark);
+  --line: var(--midnight-selection);
+  --green: var(--midnight-purple);
+  --mint: var(--midnight-selection);
+  --sidebar: var(--midnight-background-dark);
   --shadow: none;
-  --surface-subtle: var(--dracula-background);
-  --surface-soft: var(--dracula-selection);
-  --surface-accent: var(--dracula-selection);
-  --text-secondary: var(--dracula-foreground);
+  --surface-subtle: var(--midnight-background);
+  --surface-soft: var(--midnight-selection);
+  --surface-accent: var(--midnight-selection);
+  --text-secondary: var(--midnight-foreground);
   --text-tertiary: var(--muted);
-  --accent-ink: var(--dracula-purple);
-  --warning-bg: color-mix(in srgb, var(--dracula-orange) 10%, var(--bg));
-  --warning-line: var(--dracula-orange);
-  --warning-ink: var(--dracula-yellow);
-  --error-bg: color-mix(in srgb, var(--dracula-red) 10%, var(--bg));
-  --error-line: var(--dracula-red);
-  --error-ink: var(--dracula-red);
-  scrollbar-color: var(--dracula-current-line) var(--bg);
+  --accent-ink: var(--midnight-purple);
+  --warning-bg: color-mix(in srgb, var(--midnight-orange) 10%, var(--bg));
+  --warning-line: var(--midnight-orange);
+  --warning-ink: var(--midnight-yellow);
+  --error-bg: color-mix(in srgb, var(--midnight-red) 10%, var(--bg));
+  --error-line: var(--midnight-red);
+  --error-ink: var(--midnight-red);
+  scrollbar-color: var(--midnight-current-line) var(--bg);
 }
 
 html[data-theme='dark'] :is(input, select, textarea) {
@@ -56,7 +56,7 @@ html[data-theme='dark'] :is(input, textarea)::placeholder {
 }
 
 html[data-theme='dark'] :is(input, select, textarea):focus {
-  outline-color: var(--dracula-purple);
+  outline-color: var(--midnight-purple);
 }
 
 html[data-theme='dark'] :is(.topbar, .chat-compose, th, .date-strip input) {
@@ -83,9 +83,9 @@ html[data-theme='dark']
 }
 
 html[data-theme='dark'] .primary {
-  background: var(--dracula-purple);
-  border-color: var(--dracula-purple);
-  color: var(--dracula-background);
+  background: var(--midnight-purple);
+  border-color: var(--midnight-purple);
+  color: var(--midnight-background);
 }
 
 html[data-theme='dark'] .topbar .quiet-button {
@@ -181,12 +181,12 @@ html[data-theme='dark']
 }
 
 html[data-theme='dark'] :is(.upload-icon, .credit-text) {
-  color: var(--dracula-green) !important;
+  color: var(--midnight-green) !important;
 }
 
 html[data-theme='dark'] .stat-icon.warm {
   background: var(--surface-soft);
-  color: var(--dracula-orange);
+  color: var(--midnight-orange);
 }
 
 html[data-theme='dark'] .review-column {
@@ -222,7 +222,7 @@ html[data-theme='dark'] :is(.confidence, .confidence.medium) {
 }
 
 html[data-theme='dark'] .confidence.high {
-  color: var(--dracula-green);
+  color: var(--midnight-green);
 }
 
 html[data-theme='dark'] .confidence.low {
@@ -258,46 +258,46 @@ html[data-theme='dark'] .error-text {
 }
 
 html[data-theme='dark'] .balance-hero {
-  background: var(--dracula-selection);
-  border-color: var(--dracula-current-line);
+  background: var(--midnight-selection);
+  border-color: var(--midnight-current-line);
 }
 
 html[data-theme='dark'] .balance-hero h2 {
-  color: var(--dracula-green);
+  color: var(--midnight-green);
 }
 
 html[data-theme='dark'] :is(.hero-top, .hero-bottom, .balance-hero p) {
-  color: var(--dracula-foreground);
+  color: var(--midnight-foreground);
 }
 
 html[data-theme='dark'] .hero-divider {
-  background: var(--dracula-current-line);
+  background: var(--midnight-current-line);
 }
 
 html[data-theme='dark'] .round-icon {
-  background: var(--dracula-background);
-  color: var(--dracula-cyan);
+  background: var(--midnight-background);
+  color: var(--midnight-cyan);
 }
 
 html[data-theme='dark'] .balance-hero::after {
-  border-color: color-mix(in srgb, var(--dracula-purple) 30%, transparent);
+  border-color: color-mix(in srgb, var(--midnight-purple) 30%, transparent);
   box-shadow:
-    0 0 0 25px color-mix(in srgb, var(--dracula-purple) 10%, transparent),
-    0 0 0 50px color-mix(in srgb, var(--dracula-purple) 5%, transparent);
+    0 0 0 25px color-mix(in srgb, var(--midnight-purple) 10%, transparent),
+    0 0 0 50px color-mix(in srgb, var(--midnight-purple) 5%, transparent);
 }
 
 html[data-theme='dark'] .review-banner {
-  background: var(--dracula-background-light);
+  background: var(--midnight-background-light);
   border-color: var(--line);
 }
 
 html[data-theme='dark'] .banner-icon {
-  background: var(--dracula-selection);
-  color: var(--dracula-purple);
+  background: var(--midnight-selection);
+  color: var(--midnight-purple);
 }
 
 html[data-theme='dark'] .review-banner h3 {
-  color: var(--dracula-foreground);
+  color: var(--midnight-foreground);
 }
 
 html[data-theme='dark'] .review-banner p {
@@ -306,7 +306,7 @@ html[data-theme='dark'] .review-banner p {
 
 html[data-theme='dark'] :is(.upload-zone, .tip, .empty-state.compact) {
   background: var(--surface-subtle);
-  border-color: var(--dracula-current-line);
+  border-color: var(--midnight-current-line);
 }
 
 html[data-theme='dark']
@@ -318,7 +318,7 @@ html[data-theme='dark']
     .steps .active,
     .steps .complete
   ) {
-  color: var(--dracula-cyan);
+  color: var(--midnight-cyan);
 }
 
 html[data-theme='dark'] :is(.white-button, .card-actions .text-button, .tab-switch button.active) {
@@ -327,72 +327,72 @@ html[data-theme='dark'] :is(.white-button, .card-actions .text-button, .tab-swit
 
 html[data-theme='dark'] .color-0 {
   background: var(--surface-soft);
-  color: var(--dracula-purple);
+  color: var(--midnight-purple);
 }
 html[data-theme='dark'] .color-1 {
   background: var(--surface-soft);
-  color: var(--dracula-pink);
+  color: var(--midnight-pink);
 }
 html[data-theme='dark'] .color-2 {
   background: var(--surface-soft);
-  color: var(--dracula-cyan);
+  color: var(--midnight-cyan);
 }
 html[data-theme='dark'] .color-3 {
   background: var(--surface-soft);
-  color: var(--dracula-orange);
+  color: var(--midnight-orange);
 }
 html[data-theme='dark'] .dot.color-0 {
-  background: var(--dracula-purple);
+  background: var(--midnight-purple);
 }
 html[data-theme='dark'] .dot.color-1 {
-  background: var(--dracula-pink);
+  background: var(--midnight-pink);
 }
 html[data-theme='dark'] .dot.color-2 {
-  background: var(--dracula-cyan);
+  background: var(--midnight-cyan);
 }
 html[data-theme='dark'] .dot.color-3 {
-  background: var(--dracula-orange);
+  background: var(--midnight-orange);
 }
 
 html[data-theme='dark'] .ghost-bars i {
-  background: var(--dracula-selection);
+  background: var(--midnight-selection);
 }
 html[data-theme='dark'] .bar {
-  background: var(--dracula-purple);
+  background: var(--midnight-purple);
 }
 html[data-theme='dark'] .bar.negative {
-  background: var(--dracula-orange);
+  background: var(--midnight-orange);
 }
 html[data-theme='dark'] progress::-webkit-progress-bar {
-  background: var(--dracula-selection);
+  background: var(--midnight-selection);
 }
 html[data-theme='dark'] progress::-webkit-progress-value {
-  background: var(--dracula-cyan);
+  background: var(--midnight-cyan);
 }
 html[data-theme='dark'] progress::-moz-progress-bar {
-  background: var(--dracula-cyan);
+  background: var(--midnight-cyan);
 }
 
 html[data-theme='dark'] .modal::backdrop {
-  background: #191a21bd;
+  background: #080d16bd;
 }
 
 html[data-theme='dark'] .working-indicator {
-  box-shadow: 0 4px 20px #191a2140;
+  box-shadow: 0 4px 20px #080d1640;
   color: var(--green);
 }
 
 html[data-theme='dark'] ::selection {
-  background: var(--dracula-selection);
-  color: var(--dracula-foreground);
+  background: var(--midnight-selection);
+  color: var(--midnight-foreground);
 }
 
 html[data-theme='dark'] :is(button, a):focus-visible {
-  outline: 2px solid var(--dracula-purple);
+  outline: 2px solid var(--midnight-purple);
 }
 
 html[data-theme='dark'] :is(.sidebar, .brand, .local-badge) {
-  color: var(--dracula-foreground);
+  color: var(--midnight-foreground);
 }
 
 html[data-theme='dark'] :is(.sidebar-caption, .local-badge small, .self-profile small) {
@@ -404,26 +404,26 @@ html[data-theme='dark'] .sidebar nav button {
 }
 
 html[data-theme='dark'] .sidebar nav button.active {
-  background: var(--dracula-selection);
-  color: var(--dracula-purple);
+  background: var(--midnight-selection);
+  color: var(--midnight-purple);
 }
 
 html[data-theme='dark'] :is(.brand b, .sidebar nav button b, .sidebar-import) {
-  background: var(--dracula-selection);
-  border-color: var(--dracula-current-line);
-  color: var(--dracula-purple);
+  background: var(--midnight-selection);
+  border-color: var(--midnight-current-line);
+  color: var(--midnight-purple);
 }
 
 html[data-theme='dark'] .brand-symbol {
-  color: var(--dracula-purple);
+  color: var(--midnight-purple);
 }
 
 html[data-theme='dark'] :is(.local-badge > span, .hero-bottom i, .state-dot.ready) {
-  background: var(--dracula-green);
+  background: var(--midnight-green);
 }
 
 html[data-theme='dark'] :is(.eyebrow > span, .state-dot) {
-  background: var(--dracula-orange);
+  background: var(--midnight-orange);
 }
 
 html[data-theme='dark'] .self-profile {
@@ -435,7 +435,7 @@ html[data-theme='dark'] :is(th, .initial-loading) {
 }
 
 html[data-theme='dark'] .approve-button {
-  color: var(--dracula-green);
+  color: var(--midnight-green);
 }
 
 html[data-theme='dark'] .search-input input {

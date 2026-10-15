@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useState, useRef } from 'react';
+import { useCallback, useEffect, useState, useRef, Fragment } from 'react';
 import {
   ArrowDownLeft,
   ArrowDownUp,
@@ -30,7 +30,20 @@ import {
   Trash2,
 } from 'lucide-react';
 import { money } from '@/lib/money';
-import type { Snapshot, Transaction, Rule, ImportPreview } from '@/lib/types';
+import type { Snapshot, Transaction, Rule, ImportPreview, Trip } from '@/lib/types';
+import { MapPin, Bookmark, PanelLeft } from 'lucide-react';
+import {
+  TripDialog,
+  ManualExpenseDialog,
+  QuickSplitDialog,
+  AssignTripDialog,
+} from './feature-dialogs';
+import { Onboarding, TripsPanel, WorkspaceTools, ExpenseFiles } from './feature-panels';
+import {
+  normalizeLocation,
+  useWorkspaceLocation,
+  type WorkspaceLocation,
+} from './workspace-location';
 import QuickInstruction from './quick-instruction';
 import TransactionContext from './transaction-context';
 import ChatPanel from './chat-panel';
@@ -42,8 +55,20 @@ import PersonLedger from './person-ledger';
 import { WorkspaceProviders } from './timezone';
 import { api, Modal, ruleDescription, merchantLabel } from './ui';
 import { ImportDialog, PersonDialog, RepaymentDialog, SplitDialog, RuleDialog } from './dialogs';
-type View = 'overview' | 'review' | 'finalized' | 'people' | 'rules' | 'imports';
+type View = 'overview' | 'review' | 'finalized' | 'people' | 'rules' | 'imports' | 'trips';
 export default function Workspace() {
+  const [tripFilter, setTripFilter] = useState(''),
+    [tripEditor, setTripEditor] = useState<Trip | 'new' | null>(null),
+    [manualOpen, setManualOpen] = useState(false),
+    [quickItems, setQuickItems] = useState<Transaction[] | null>(null),
+    [assignItems, setAssignItems] = useState<Transaction[] | null>(null),
+    [mobileColumn, setMobileColumn] = useState<'inbox' | 'ready'>('inbox'),
+    [compact, setCompact] = useState(true),
+    [saveViewOpen, setSaveViewOpen] = useState(false),
+    [saveViewName, setSaveViewName] = useState(''),
+    [savedViews, setSavedViews] = useState<{ name: string; state: WorkspaceLocation }[]>([]),
+    [chatScope, setChatScope] = useState<'workspace' | 'selection' | 'trip'>('workspace');
+
   const [page, setPage] = useState(0),
     [settingsOpen, setSettingsOpen] = useState(false),
     [fetchedDetail, setFetchedDetail] = useState<Transaction | null>(null);
@@ -74,12 +99,64 @@ export default function Workspace() {
     [deletingRule, setDeletingRule] = useState<Rule | null>(null),
     [optimizingRules, setOptimizingRules] = useState(false),
     [transferKind, setTransferKind] = useState<'transactions' | 'rules' | null>(null);
+  const restoreTarget = useRef<string | null>(null);
+  const restoreLocation = useCallback((input: WorkspaceLocation) => {
+    const s = normalizeLocation(input);
+    restoreTarget.current = JSON.stringify([
+      s.view,
+      s.from,
+      s.to,
+      s.search,
+      s.account,
+      s.person,
+      s.trip,
+    ]);
+    setView(
+      (['overview', 'review', 'finalized', 'people', 'rules', 'imports', 'trips'].includes(s.view)
+        ? s.view
+        : 'overview') as View,
+    );
+    setFrom(s.from);
+    setTo(s.to);
+    setSearch(s.search);
+    setPersonFilter(s.person);
+    setAccountFilter(s.account);
+    setTripFilter(s.trip);
+    setPage(s.page);
+  }, []);
+  const locationState = {
+    view,
+    from,
+    to,
+    search,
+    person: personFilter,
+    account: accountFilter,
+    trip: tripFilter,
+    page,
+  };
+  useWorkspaceLocation(locationState, restoreLocation);
+  useEffect(() => {
+    try {
+      const parsed = JSON.parse(
+        localStorage.getItem('splitwise-views-' + (data?.workspace?.id || 'local')) || '[]',
+      );
+      if (Array.isArray(parsed))
+        setSavedViews(
+          parsed
+            .filter(
+              (v) => typeof v.name === 'string' && v.state && typeof v.state.view === 'string',
+            )
+            .slice(0, 20),
+        );
+    } catch {}
+  }, [data?.workspace?.id]);
   const fetchSequence = useRef(0);
   const fetchData = useCallback(async () => {
     const q = new URLSearchParams({ paged: '1', view, page: String(page) });
     if (search) q.set('search', search);
     if (accountFilter) q.set('account', accountFilter);
     if (personFilter) q.set('person', personFilter);
+    if (tripFilter) q.set('trip', tripFilter);
     if (from) q.set('from', from);
     if (to) q.set('to', to);
     const sequence = ++fetchSequence.current;
@@ -89,11 +166,20 @@ export default function Workspace() {
     } catch (e) {
       setNotice({ text: (e as Error).message, error: true });
     }
-  }, [from, to, view, page, search, accountFilter, personFilter]);
+  }, [from, to, view, page, search, accountFilter, personFilter, tripFilter]);
   useEffect(() => {
+    if (restoreTarget.current !== null) {
+      if (
+        restoreTarget.current ===
+        JSON.stringify([view, from, to, search, accountFilter, personFilter, tripFilter])
+      )
+        restoreTarget.current = null;
+      setSelected(new Set());
+      return;
+    }
     setPage(0);
     setSelected(new Set());
-  }, [view, from, to, search, accountFilter, personFilter]);
+  }, [view, from, to, search, accountFilter, personFilter, tripFilter]);
   useEffect(() => {
     if (!detailTxId) {
       setFetchedDetail(null);
@@ -174,6 +260,7 @@ export default function Workspace() {
     setSearch('');
     setPersonFilter('');
     setAccountFilter('');
+    if (next !== 'trips') setTripFilter('');
   }
   function toggle(id: string) {
     setSelected((old) => {
@@ -211,15 +298,39 @@ export default function Workspace() {
     const ids = data?.transactions
       .filter((t) => selected.has(t.id) && t.state !== 'finalized')
       .map((t) => t.id);
-    if (selected.size && !ids?.length)
+    if (chatScope === 'selection' && selected.size && !ids?.length)
       throw new Error(
         'Select Inbox or Ready expenses to send instructions. Finalized expenses are read-only.',
       );
-    await api('jobs', { kind: 'chat', text, ids: ids?.length ? ids : undefined });
+    if (chatScope === 'selection' && !ids?.length)
+      throw new Error('Select unfinished expenses first.');
+    if (chatScope === 'trip' && !tripFilter) throw new Error('Choose a trip first.');
+    await api('jobs', {
+      kind: 'chat',
+      text,
+      ids: chatScope === 'workspace' ? undefined : ids?.length ? ids : undefined,
+      tripId: chatScope === 'trip' ? tripFilter : undefined,
+    });
     await fetchData();
   }
-  async function sendInstruction(tx: Transaction, text: string) {
-    await api('transactions/instruct', { items: [{ id: tx.id, version: tx.version }], text });
+  async function quickPersonal(
+    items: Transaction[],
+    mode: 'personal' | 'last' | 'trip' = 'personal',
+  ) {
+    await action(
+      () =>
+        api('transactions/quick', {
+          items: items.map((t) => ({ id: t.id, version: t.version })),
+          mode,
+        }),
+      items.length + ' splits prepared. Review before finalizing.',
+    );
+  }
+  async function sendBulkInstruction(items: Transaction[], text: string) {
+    await api('transactions/instruct', {
+      items: items.map((t) => ({ id: t.id, version: t.version })),
+      text,
+    });
     await fetchData();
   }
   async function cancelJob(id: string) {
@@ -267,12 +378,16 @@ export default function Workspace() {
           t.instruction,
           t.proposal?.category || '',
           ...t.notes.map((n) => n.text),
+          ...(data.aliases || [])
+            .filter((a) => t.description.toUpperCase().includes(a.pattern))
+            .map((a) => a.name),
         ].some((value) => value.toLowerCase().includes(search.toLowerCase()))) &&
       (!personFilter || t.proposal?.splits.some((s) => s.personId === personFilter)) &&
       (!accountFilter || t.accountId === accountFilter),
   );
   const chosen = filtered.filter((t) => selected.has(t.id));
   const title = {
+    trips: 'Trips',
     overview: 'Overview',
     review: 'Review workspace',
     finalized: 'Finalized expenses',
@@ -289,6 +404,7 @@ export default function Workspace() {
       count: d.inboxCount + d.readyCount,
     },
     { view: 'finalized' as const, label: 'Finalized', icon: ShieldCheck },
+    { view: 'trips' as const, label: 'Trips', icon: MapPin },
     { view: 'people' as const, label: 'People', icon: Users },
     {
       view: 'rules' as const,
@@ -333,6 +449,23 @@ export default function Workspace() {
           </option>
         ))}
       </select>
+      <select
+        aria-label="Filter by trip"
+        value={tripFilter}
+        onChange={(e) => setTripFilter(e.target.value)}
+      >
+        <option value="">All trips & everyday expenses</option>
+        {data.trips?.map((t) => (
+          <option key={t.id} value={t.id}>
+            {t.name}
+            {t.status === 'archived' ? ' · Archived' : ''}
+          </option>
+        ))}
+      </select>
+      <button className="quiet-button" onClick={() => setSaveViewOpen(true)}>
+        <Bookmark size={14} />
+        Save view
+      </button>
     </div>
   );
   function groups(transactions: Transaction[], state: 'inbox' | 'ready') {
@@ -348,7 +481,11 @@ export default function Workspace() {
         : 'none';
       const key =
         state === 'inbox'
-          ? t.id
+          ? t.description.replace(/\s+/g, ' ').toUpperCase() +
+            '|' +
+            (t.tripId || '') +
+            '|' +
+            (t.instruction || '')
           : t.batchId + '|' + t.description.replace(/\s+/g, ' ').toUpperCase() + '|' + pattern;
       grouped.set(key, [...(grouped.get(key) || []), t]);
     }
@@ -368,11 +505,50 @@ export default function Workspace() {
               <span />
             </div>
           )}
-          <article className="transaction-card">
+          <article
+            className="transaction-card"
+            tabIndex={0}
+            data-transaction-id={t.id}
+            onKeyDown={(e) => {
+              if (
+                ['INPUT', 'TEXTAREA', 'SELECT', 'BUTTON', 'SUMMARY', 'A'].includes(
+                  (e.target as HTMLElement).tagName,
+                ) ||
+                e.ctrlKey ||
+                e.metaKey ||
+                e.altKey
+              )
+                return;
+              if (e.key === 'j' || e.key === 'k') {
+                e.preventDefault();
+                const rows = Array.from(
+                  document.querySelectorAll<HTMLElement>('[data-transaction-id]'),
+                );
+                const i = rows.indexOf(e.currentTarget);
+                rows[i + (e.key === 'j' ? 1 : -1)]?.focus();
+              }
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                setDetailTxId(t.id);
+              }
+              if (e.key === ' ') {
+                e.preventDefault();
+                setSelected((old) => {
+                  const n = new Set(old),
+                    all = items.every((item) => old.has(item.id));
+                  for (const item of items) {
+                    if (all) n.delete(item.id);
+                    else n.add(item.id);
+                  }
+                  return n;
+                });
+              }
+            }}
+          >
             <div className="transaction-main">
               <input
                 type="checkbox"
-                aria-label={'Select ' + t.description + (items.length > 1 ? ' group' : '')}
+                aria-label={'Select ' + t.description}
                 checked={items.every((t) => selected.has(t.id))}
                 onChange={() =>
                   setSelected((old) => {
@@ -390,7 +566,23 @@ export default function Workspace() {
                 <ReceiptText size={17} />
               </span>
               <div className="grow">
-                <h4>{t.description}</h4>
+                <h4>
+                  {data!.aliases?.find((a) =>
+                    t.description.toUpperCase().replace(/\s+/g, ' ').includes(a.pattern),
+                  )?.name || t.description}
+                </h4>
+                {t.tripId && (
+                  <button
+                    className="trip-chip"
+                    onClick={() => {
+                      setTripFilter(t.tripId!);
+                      setView('trips');
+                    }}
+                  >
+                    <MapPin size={11} />
+                    {data!.trips?.find((trip) => trip.id === t.tripId)?.name}
+                  </button>
+                )}
                 <small>
                   {data!.accounts.find((a) => a.id === t.accountId)?.name} · {t.date}
                   {items.length > 1 ? ' · ' + items.length + ' expenses' : ''}
@@ -428,17 +620,20 @@ export default function Workspace() {
                     </span>
                   ))}
                 </div>
-                <p className="explanation">
-                  <Sparkles size={13} />
-                  <span>
-                    {p.source === 'rule'
-                      ? 'Rule: '
-                      : p.source === 'inference'
-                        ? 'AI inference: '
-                        : ''}
-                    {p.explanation}
-                  </span>
-                </p>
+                <details className="proposal-evidence">
+                  <summary>Why this split</summary>
+                  <p className="explanation">
+                    <Sparkles size={13} />
+                    <span>
+                      {p.source === 'rule'
+                        ? 'Rule: '
+                        : p.source === 'inference'
+                          ? 'AI inference: '
+                          : ''}
+                      {p.explanation}
+                    </span>
+                  </p>
+                </details>
               </>
             ) : (
               <p className="needs-input">
@@ -467,6 +662,9 @@ export default function Workspace() {
                     <button className="text-button" onClick={() => setEditTx(t)}>
                       Edit split
                     </button>
+                    <button className="text-button" onClick={() => setDetailTxId(t.id)}>
+                      Details
+                    </button>
                   </div>
                 ))}
               </details>
@@ -478,14 +676,56 @@ export default function Workspace() {
                 people={data!.people}
                 configured={data!.aiConfigured}
                 job={data!.jobs.find((j) => j.payload.ids?.includes(t.id))}
-                onSend={sendInstruction}
+                onSend={(_tx, text) => sendBulkInstruction(items, text)}
                 onCancel={cancelJob}
                 onRetry={retryJob}
               />
             )}
+            {state === 'inbox' && (
+              <div className="quick-actions">
+                <button
+                  className="quiet-button"
+                  disabled={loading}
+                  onClick={() => quickPersonal(items)}
+                >
+                  Personal
+                </button>
+                <button
+                  className="quiet-button"
+                  disabled={loading}
+                  onClick={() => setQuickItems(items)}
+                >
+                  Split equally
+                </button>
+                {!!data!.lastSplit && (
+                  <button
+                    className="text-button"
+                    disabled={loading}
+                    onClick={() => quickPersonal(items, 'last')}
+                  >
+                    Use last split
+                  </button>
+                )}
+                {t.tripId && (
+                  <button
+                    className="quiet-button"
+                    disabled={loading}
+                    onClick={() => quickPersonal(items, 'trip')}
+                  >
+                    Trip default
+                  </button>
+                )}
+                <button className="text-button" onClick={() => setAssignItems(items)}>
+                  Assign trip
+                </button>
+              </div>
+            )}
             <footer className="card-actions">
               <button className="text-button" onClick={() => setEditTx(t)}>
                 {items.length > 1 ? 'Edit first split' : 'Edit split'}
+              </button>
+              <button className="text-button" onClick={() => setDetailTxId(t.id)}>
+                Details
               </button>
               <div>
                 {state === 'ready' && (
@@ -519,7 +759,7 @@ export default function Workspace() {
       error={notice?.error ? notice.text : null}
       timeZone={data.workspace?.timezone || 'America/Los_Angeles'}
     >
-      <div className={'app-shell ' + (chatOpen ? 'has-chat' : '')}>
+      <div className={'app-shell ' + (compact ? 'compact ' : '') + (chatOpen ? 'has-chat' : '')}>
         <aside className="sidebar">
           <a href="/" className="brand">
             <span className="brand-symbol">
@@ -532,16 +772,21 @@ export default function Workspace() {
           <p className="sidebar-caption">A CLEARER SHARE</p>
           <nav>
             {nav.map((n) => (
-              <button
-                key={n.view}
-                aria-label={n.label}
-                className={view === n.view ? 'active' : ''}
-                onClick={() => navigate(n.view)}
-              >
-                <n.icon size={18} />
-                <span>{n.label}</span>
-                {!!n.count && <b>{n.count}</b>}
-              </button>
+              <Fragment key={n.view}>
+                {n.view === 'review' && <p className="nav-section">Transactions</p>}
+                {n.view === 'rules' && <p className="nav-section">Manage</p>}
+                <button
+                  key={n.view}
+                  aria-label={n.label}
+                  title={n.label}
+                  className={view === n.view ? 'active' : ''}
+                  onClick={() => navigate(n.view)}
+                >
+                  <n.icon size={18} />
+                  <span>{n.label}</span>
+                  {!!n.count && <b>{n.count}</b>}
+                </button>
+              </Fragment>
             ))}
           </nav>
           <div className="sidebar-bottom">
@@ -555,6 +800,10 @@ export default function Workspace() {
             <button className="sidebar-import" onClick={() => setImportOpen(true)}>
               <Plus size={18} />
               Import statements
+            </button>
+            <button className="sidebar-import" onClick={() => setManualOpen(true)}>
+              <Plus size={16} />
+              Add expense
             </button>
             <div className="self-profile">
               <span className="avatar">M</span>
@@ -593,7 +842,11 @@ export default function Workspace() {
               </button>
               <button
                 className={'quiet-button ' + (chatOpen ? 'active' : '')}
-                onClick={() => setChatOpen(!chatOpen)}
+                onClick={() => {
+                  if (!chatOpen)
+                    setChatScope(selected.size ? 'selection' : tripFilter ? 'trip' : 'workspace');
+                  setChatOpen(!chatOpen);
+                }}
               >
                 <Sparkles size={16} />
                 Ask AI
@@ -620,10 +873,16 @@ export default function Workspace() {
                           ? 'The people you share life—and expenses—with.'
                           : view === 'imports'
                             ? 'Every statement, with a record of what was added.'
-                            : 'Accepted splits that count toward your balances.'}
+                            : view === 'trips'
+                              ? 'Keep shared plans, expenses, and balances together.'
+                              : 'Accepted splits that count toward your balances.'}
                 </p>
               </div>
               <div className="rule-page-actions">
+                <button className="quiet-button" onClick={() => setManualOpen(true)}>
+                  <Plus size={16} />
+                  Add expense
+                </button>
                 <button
                   className="quiet-button"
                   onClick={() => setTransferKind(view === 'rules' ? 'rules' : 'transactions')}
@@ -639,6 +898,42 @@ export default function Workspace() {
             <div className="date-strip">
               <CalendarDays size={16} />
               <span>Expense dates</span>
+              <select
+                aria-label="Date preset"
+                defaultValue=""
+                onChange={(e) => {
+                  const today = new Intl.DateTimeFormat('en-CA', {
+                      timeZone: data.workspace?.timezone || 'America/Los_Angeles',
+                    }).format(new Date()),
+                    year = Number(today.slice(0, 4)),
+                    month = Number(today.slice(5, 7));
+                  if (e.target.value === 'month') {
+                    setFrom(today.slice(0, 7) + '-01');
+                    setTo(today);
+                  }
+                  if (e.target.value === 'last') {
+                    setFrom(new Date(Date.UTC(year, month - 2, 1)).toISOString().slice(0, 10));
+                    setTo(new Date(Date.UTC(year, month - 1, 0)).toISOString().slice(0, 10));
+                  }
+                  if (e.target.value === 'year') {
+                    setFrom(year + '-01-01');
+                    setTo(today);
+                  }
+                  if (e.target.value === 'all') {
+                    setFrom('');
+                    setTo('');
+                  }
+                  e.currentTarget.value = '';
+                }}
+              >
+                <option value="" disabled>
+                  Quick dates
+                </option>
+                <option value="month">This month</option>
+                <option value="last">Last month</option>
+                <option value="year">This year</option>
+                <option value="all">All time</option>
+              </select>
               <input
                 aria-label="Start date"
                 type="date"
@@ -666,6 +961,31 @@ export default function Workspace() {
                 <span className="all-time">All time</span>
               )}
             </div>
+            {savedViews.length > 0 && ['review', 'finalized'].includes(view) && (
+              <div className="saved-views">
+                <span>Saved views</span>
+                {savedViews.map((v, i) => (
+                  <span className="saved-view" key={i}>
+                    <button onClick={() => restoreLocation(v.state)}>{v.name}</button>
+                    <button
+                      aria-label={'Remove saved view ' + v.name}
+                      onClick={() => {
+                        const next = savedViews.filter((_, n) => n !== i);
+                        setSavedViews(next);
+                        try {
+                          localStorage.setItem(
+                            'splitwise-views-' + (data.workspace?.id || 'local'),
+                            JSON.stringify(next),
+                          );
+                        } catch {}
+                      }}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+              </div>
+            )}
             {notice && (
               <div
                 className={'notice ' + (notice.error ? 'error' : '')}
@@ -719,6 +1039,21 @@ export default function Workspace() {
               ))}
             {view === 'overview' && (
               <>
+                {!data.onboardingDismissed && (
+                  <Onboarding
+                    data={data}
+                    onPeople={() => setPersonOpen(true)}
+                    onImport={() => setImportOpen(true)}
+                    onManual={() => setManualOpen(true)}
+                    onReview={() => navigate('review')}
+                    onRepay={() => {
+                      const person = data.people.find((p) => !p.isSelf);
+                      if (person) setRepayPerson(person.id);
+                      else setPersonOpen(true);
+                    }}
+                    onDismiss={() => action(() => api('onboarding', { dismissed: true }))}
+                  />
+                )}
                 <section className="summary-grid">
                   <article className="balance-hero">
                     <div className="hero-top">
@@ -941,10 +1276,39 @@ export default function Workspace() {
                 </p>
               </>
             )}
+            {view === 'trips' && (
+              <TripsPanel
+                data={data}
+                tripId={tripFilter}
+                onSelect={(id) => setTripFilter(id)}
+                onReview={() => {
+                  setFrom('');
+                  setTo('');
+                  setView('review');
+                }}
+                onCreate={() => setTripEditor('new')}
+                onEdit={(t) => setTripEditor(t)}
+                onChanged={fetchData}
+                onManual={() => setManualOpen(true)}
+                onChat={() => {
+                  setChatScope('trip');
+                  setChatOpen(true);
+                }}
+              />
+            )}
+            {view === 'rules' && <WorkspaceTools data={data} onChanged={fetchData} />}
             {view === 'review' && (
               <>
                 {filters}
                 <div className="review-toolbar">
+                  <button
+                    className="quiet-button density-toggle"
+                    aria-pressed={compact}
+                    onClick={() => setCompact(!compact)}
+                  >
+                    <PanelLeft size={14} />
+                    {compact ? 'Compact' : 'Comfortable'}
+                  </button>
                   <span>
                     {selected.size
                       ? selected.size + ' selected'
@@ -997,6 +1361,50 @@ export default function Workspace() {
                     </button>
                   </div>
                 </div>
+                {chosen.length > 0 && (
+                  <div className="selection-bar quick-bulk">
+                    <b>{chosen.length} selected</b>
+                    <button
+                      className="quiet-button"
+                      disabled={loading}
+                      onClick={() => quickPersonal(chosen.filter((t) => t.state !== 'finalized'))}
+                    >
+                      Personal
+                    </button>
+                    <button
+                      className="quiet-button"
+                      onClick={() => setQuickItems(chosen.filter((t) => t.state !== 'finalized'))}
+                    >
+                      Split selected
+                    </button>
+                    <button className="quiet-button" onClick={() => setAssignItems(chosen)}>
+                      Assign trip
+                    </button>
+                    <button
+                      className="quiet-button"
+                      onClick={() => {
+                        setChatScope('selection');
+                        setChatOpen(true);
+                      }}
+                    >
+                      Give one instruction
+                    </button>
+                  </div>
+                )}
+                <div className="mobile-review-tabs">
+                  <button
+                    className={mobileColumn === 'inbox' ? 'active' : ''}
+                    onClick={() => setMobileColumn('inbox')}
+                  >
+                    Inbox · {data.pagination?.inbox || 0}
+                  </button>
+                  <button
+                    className={mobileColumn === 'ready' ? 'active' : ''}
+                    onClick={() => setMobileColumn('ready')}
+                  >
+                    Ready for review · {data.pagination?.ready || 0}
+                  </button>
+                </div>
                 {chosen.some((t) => t.state === 'ready') && (
                   <div className="selection-bar">
                     <b>
@@ -1027,7 +1435,7 @@ export default function Workspace() {
                     </button>
                   </div>
                 )}
-                <div className="review-board">
+                <div className="review-board" data-mobile-column={mobileColumn}>
                   {(['inbox', 'ready'] as const).map((state) => (
                     <section className={'review-column ' + state} key={state}>
                       <header className="column-heading">
@@ -1036,6 +1444,7 @@ export default function Workspace() {
                           <input
                             type="checkbox"
                             aria-label={'Select all ' + (state === 'inbox' ? 'Inbox' : 'Ready')}
+                            disabled={!filtered.some((t) => t.state === state)}
                             checked={
                               filtered.some((t) => t.state === state) &&
                               filtered
@@ -1087,8 +1496,8 @@ export default function Workspace() {
                   ))}
                 </div>
                 <p className="footnote">
-                  <Undo2 size={14} />
-                  Each divider marks an action batch that Undo can reverse.
+                  <Undo2 size={14} />J / K to navigate focused expenses · Space to select · Enter
+                  for details · Ctrl+Z to Undo a batch.
                 </p>
               </>
             )}
@@ -1142,6 +1551,14 @@ export default function Workspace() {
                     </button>
                   )}
                 </div>
+                {chosen.length > 0 && (
+                  <div className="selection-bar">
+                    <b>{chosen.length} selected</b>
+                    <button className="quiet-button" onClick={() => setAssignItems(chosen)}>
+                      Assign trip
+                    </button>
+                  </div>
+                )}
                 <div className="panel table-panel">
                   <table>
                     <thead>
@@ -1456,6 +1873,32 @@ export default function Workspace() {
         </div>
         {chatOpen && (
           <ChatPanel
+            onReviewTransactions={() => setView('review')}
+            scopeLabel={
+              chatScope === 'trip'
+                ? 'Trip: ' + (data.trips?.find((t) => t.id === tripFilter)?.name || 'Choose a trip')
+                : chatScope === 'selection'
+                  ? chosen.filter((t) => t.state !== 'finalized').length +
+                    (chosen.filter((t) => t.state !== 'finalized').length === 1
+                      ? ' selected expense'
+                      : ' selected expenses')
+                  : 'Workspace'
+            }
+            scopeControl={
+              <select
+                aria-label="Assistant scope"
+                value={chatScope}
+                onChange={(e) => setChatScope(e.target.value as 'workspace' | 'selection' | 'trip')}
+              >
+                <option value="workspace">Workspace</option>
+                <option value="selection" disabled={!chosen.some((t) => t.state !== 'finalized')}>
+                  Selected expenses
+                </option>
+                <option value="trip" disabled={!tripFilter}>
+                  Current trip
+                </option>
+              </select>
+            }
             messages={data.messages}
             ruleChanges={data.ruleChanges}
             rules={data.rules}
@@ -1568,6 +2011,103 @@ export default function Workspace() {
             }}
           />
         )}
+        {saveViewOpen && (
+          <Modal
+            title="Save this view"
+            subtitle="Keep these filters in this browser."
+            onClose={() => setSaveViewOpen(false)}
+          >
+            <form
+              className="modal-body form"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const next = [
+                  ...savedViews.filter((v) => v.name !== saveViewName.trim()),
+                  { name: saveViewName.trim(), state: locationState },
+                ].slice(-20);
+                try {
+                  localStorage.setItem(
+                    'splitwise-views-' + (data.workspace?.id || 'local'),
+                    JSON.stringify(next),
+                  );
+                  setSavedViews(next);
+                  setSaveViewOpen(false);
+                  setSaveViewName('');
+                } catch {
+                  setNotice({ text: 'Browser storage is unavailable.', error: true });
+                }
+              }}
+            >
+              <label>
+                View name
+                <input
+                  required
+                  maxLength={60}
+                  autoFocus
+                  value={saveViewName}
+                  onChange={(e) => setSaveViewName(e.target.value)}
+                />
+              </label>
+              <footer className="modal-actions">
+                <button className="primary">Save view</button>
+              </footer>
+            </form>
+          </Modal>
+        )}
+        {tripEditor && (
+          <TripDialog
+            data={data}
+            trip={tripEditor === 'new' ? undefined : tripEditor}
+            onClose={() => setTripEditor(null)}
+            onSaved={async (id) => {
+              await fetchData();
+              setTripEditor(null);
+              setTripFilter(id);
+              setView('trips');
+            }}
+          />
+        )}
+        {manualOpen && (
+          <ManualExpenseDialog
+            data={data}
+            tripId={tripFilter}
+            onClose={() => setManualOpen(false)}
+            onSaved={async () => {
+              setManualOpen(false);
+              setView('review');
+              setSearch('');
+              setPage(0);
+              await fetchData();
+              setNotice({ text: 'Expense added to Inbox. Choose a split to continue.' });
+            }}
+          />
+        )}
+        {quickItems && (
+          <QuickSplitDialog
+            data={data}
+            items={quickItems}
+            onClose={() => setQuickItems(null)}
+            onSaved={async () => {
+              setQuickItems(null);
+              setSelected(new Set());
+              await fetchData();
+              setNotice({ text: 'Splits prepared. Review and approve when ready.' });
+            }}
+          />
+        )}
+        {assignItems && (
+          <AssignTripDialog
+            data={data}
+            items={assignItems}
+            onClose={() => setAssignItems(null)}
+            onSaved={async () => {
+              setAssignItems(null);
+              setSelected(new Set());
+              await fetchData();
+              setNotice({ text: 'Trip assignments updated. Undo can reverse this batch.' });
+            }}
+          />
+        )}
         {settingsOpen && (
           <SettingsDialog
             data={data}
@@ -1583,6 +2123,13 @@ export default function Workspace() {
             onClose={() => setPersonDetail(null)}
           >
             <div className="modal-body">
+              <a
+                className="quiet-button"
+                href={'/api/settlements/' + personDetail + '?' + new URLSearchParams({ from, to })}
+              >
+                <ArrowDownUp size={14} />
+                Download settlement summary
+              </a>
               <PersonLedger
                 id={personDetail}
                 from={from}
@@ -1624,6 +2171,7 @@ export default function Workspace() {
               <p className="muted">
                 {data.accounts.find((a) => a.id === detailTx.accountId)?.name}
               </p>
+              {detailTx.attention && <p className="needs-input">{detailTx.attention}</p>}
               {detailTx.proposal && (
                 <>
                   <h3>{detailTx.proposal.category}</h3>
@@ -1638,7 +2186,26 @@ export default function Workspace() {
                   <p className="explanation">{detailTx.proposal.explanation}</p>
                 </>
               )}
+              {detailTx.tripId && (
+                <p className="trip-chip">
+                  Trip: {data.trips?.find((t) => t.id === detailTx.tripId)?.name}
+                </p>
+              )}
+              <button
+                className="quiet-button"
+                onClick={() => {
+                  setAssignItems([detailTx]);
+                  setDetailTxId(null);
+                }}
+              >
+                Assign or change trip
+              </button>
               <TransactionContext transactions={[detailTx]} expanded />
+              <ExpenseFiles
+                tx={detailTx}
+                onChanged={fetchData}
+                refreshToken={data.batches.map((b) => b.id + String(b.undoneAt)).join('|')}
+              />
               {!detailTx.notes.length && !detailTx.instruction && (
                 <p className="muted">No additional context has been saved for this expense.</p>
               )}

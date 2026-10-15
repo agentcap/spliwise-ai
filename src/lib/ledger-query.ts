@@ -4,6 +4,7 @@ import { invariant } from './errors';
 import type { Transaction } from './types';
 export interface LedgerQuery {
   view?: string;
+  tripId?: string;
   positive?: boolean;
   page?: number;
   search?: string;
@@ -23,6 +24,7 @@ export function queryLedger(db: Sqlite, query: LedgerQuery, size = 100) {
     ['date', query.from, '>='],
     ['date', query.to, '<='],
     ['accountId', query.accountId, '='],
+    ['tripId', query.tripId, '='],
   ] as const)
     if (value) {
       conditions.push(field + op + '?');
@@ -31,9 +33,9 @@ export function queryLedger(db: Sqlite, query: LedgerQuery, size = 100) {
   if (query.search) {
     invariant(query.search.length <= 200, 'Search is too long.');
     conditions.push(
-      "instr(lower(description||' '||instruction||' '||COALESCE(proposal,'')||' '||notes),lower(?))>0",
+      "(instr(lower(description||' '||instruction||' '||COALESCE(proposal,'')||' '||notes),lower(?))>0 OR EXISTS(SELECT 1 FROM merchant_aliases a WHERE instr(lower(transactions.description),lower(a.pattern))>0 AND instr(lower(a.name),lower(?))>0))",
     );
-    args.push(query.search);
+    args.push(query.search, query.search);
   }
   if (query.personId) {
     conditions.push(

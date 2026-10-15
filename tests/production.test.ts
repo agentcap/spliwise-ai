@@ -613,3 +613,56 @@ test('OIDC top-level callback navigation is allowed without weakening cross-site
   });
   expect(() => checkOrigin(fetch, { allowExternalNavigation: true })).toThrow(/another website/);
 });
+
+test('production trip, manual expense, receipt and settlement interfaces stay within the session workspace', async () => {
+  vi.stubEnv('OIDC_ALLOWED_EMAILS', 'features-a@example.test,features-b@example.test');
+  const alice = person('features-a@example.test'),
+    bob = person('features-b@example.test'),
+    a = workspaceStore(alice);
+  const tokenA = createSession(alice.id),
+    tokenB = createSession(bob.id);
+  const participant = a.addPerson('Synthetic Trip Person', 'production_trip_person');
+  const trip = await (
+    await call('trips/save', tokenA, {
+      name: 'Synthetic private trip',
+      destination: 'Synthetic',
+      from: '2026-01-01',
+      to: '2026-01-03',
+      context: '',
+      split: { mode: 'equal', participants: ['self', participant.id] },
+    })
+  ).json();
+  const manual = await (
+    await call('transactions/manual', tokenA, {
+      description: 'Synthetic private cash',
+      date: '2026-01-01',
+      amountCents: 1000,
+      category: 'Travel',
+      note: 'Synthetic note',
+      tripId: trip.id,
+      requestId: randomUUID(),
+    })
+  ).json();
+  expect((await call('trips/' + trip.id + '/suggestions', tokenB)).status).toBe(404);
+  expect(
+    (
+      await call('trips/assign', tokenB, {
+        tripId: trip.id,
+        items: [{ id: manual.id, version: 1 }],
+      })
+    ).status,
+  ).toBe(404);
+  expect(
+    (
+      await call('transactions/quick', tokenB, {
+        items: [{ id: manual.id, version: 1 }],
+        mode: 'personal',
+      })
+    ).status,
+  ).toBe(404);
+  expect((await call('transaction-source/' + manual.id, tokenB)).status).toBe(404);
+  expect((await call('transaction-files/' + manual.id, tokenB)).status).toBe(404);
+  expect((await call('settlements/' + participant.id, tokenB)).status).toBe(404);
+  expect((await call('transactions/manual', undefined, {})).status).toBe(401);
+  expect((await call('trips/save', undefined, {})).status).toBe(401);
+});

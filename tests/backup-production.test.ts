@@ -15,6 +15,7 @@ import { randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { openControl } from '../src/db/control';
 import { openDatabase } from '../src/db';
+import { Features } from '../src/lib/features';
 import { Store } from '../src/lib/store';
 import { createSnapshot, verifySnapshot } from '../src/lib/backups';
 test('full backup restore verifies each database, revokes sessions and reapplies newer deletion requests', async () => {
@@ -74,6 +75,28 @@ test('full backup restore verifies each database, revokes sessions and reapplies
         split: { mode: 'personal', participants: ['self'] },
       });
       store.reviewRule(rule, true);
+      const features = new Features(store);
+      const trip = features.saveTrip({
+        name: 'Synthetic recovered trip',
+        destination: 'Synthetic',
+        from: '2026-01-01',
+        to: '2026-01-02',
+        split: { mode: 'equal', participants: ['self', person.id] },
+        context: 'Visible trip context',
+      });
+      features.assign([store.transaction(txId)], trip.id);
+      features.saveTemplate({
+        name: 'Recovered template',
+        category: 'Food & Drink',
+        spec: { mode: 'equal', participants: ['self', person.id] },
+      });
+      features.saveAlias({ pattern: 'SYNTHETIC', name: 'Recovered merchant' });
+      features.addAttachment(
+        txId,
+        'receipt.pdf',
+        'application/pdf',
+        Buffer.from('%PDF-1.4\nSynthetic receipt\n%%EOF'),
+      );
       db.close();
     }
     control
@@ -121,6 +144,21 @@ test('full backup restore verifies each database, revokes sessions and reapplies
     expect(restoredStore.transactions()[0].notes[0].text).toBe('Synthetic trip lunch.');
     expect(restoredStore.all('SELECT * FROM import_rows')).toHaveLength(1);
     expect(restoredStore.rules().some((r) => r.active && r.title === 'Synthetic rule')).toBe(true);
+    const recovered = new Features(restoredStore);
+    expect(recovered.trips()[0].context).toBe('Visible trip context');
+    expect(recovered.templates()[0].name).toBe('Recovered template');
+    expect(recovered.aliases()[0].name).toBe('Recovered merchant');
+    expect(
+      await recovered
+        .download(recovered.attachments(restoredStore.transactions()[0].id)[0].id)
+        .text(),
+    ).toContain('Synthetic receipt');
+    expect(restoredStore.undo()).toContain('receipt');
+    expect(recovered.attachments(restoredStore.transactions()[0].id)).toHaveLength(0);
+    restoredStore.undo();
+    restoredStore.undo();
+    restoredStore.undo();
+    restoredStore.undo();
     expect(restoredStore.undo()).toContain('Activate');
     expect(restoredStore.rules().some((r) => r.active)).toBe(false);
     restoredLedger.close();

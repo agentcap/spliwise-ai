@@ -50,6 +50,20 @@
       "when": 1792090133368,
       "tag": "0006_hard_lady_ursula",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "6",
+      "when": 1792096826482,
+      "tag": "0007_trips_and_workspace_tools",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1792103867546,
+      "tag": "0008_index_trip_assignments",
+      "breakpoints": true
     }
   ]
 }

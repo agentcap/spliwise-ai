@@ -47,7 +47,7 @@ const proposal = z.object({
     .max(30),
   category: z.string().trim().min(1).max(80),
   confidence: z.enum(['high', 'medium', 'low']),
-  source: z.enum(['rule', 'instruction', 'inference', 'refund', 'manual']),
+  source: z.enum(['rule', 'instruction', 'inference', 'refund', 'manual', 'trip']),
   explanation: z.string(),
   ruleId: id.optional(),
   ruleVersion: z.number().int().positive().optional(),
@@ -199,7 +199,13 @@ export class DataTransfer {
   }
   export(
     kind: TransferKind,
-    options: { from?: string; to?: string; state?: string; includePending?: boolean } = {},
+    options: {
+      from?: string;
+      to?: string;
+      state?: string;
+      tripId?: string;
+      includePending?: boolean;
+    } = {},
   ): TransferBundle {
     if (options.from) isoDate(options.from);
     if (options.to) isoDate(options.to);
@@ -253,6 +259,7 @@ export class DataTransfer {
           all
             .filter(
               (tx) =>
+                (!options.tripId || tx.tripId === options.tripId) &&
                 (!options.from || tx.date >= options.from) &&
                 (!options.to || tx.date <= options.to) &&
                 (!options.state || tx.state === options.state),

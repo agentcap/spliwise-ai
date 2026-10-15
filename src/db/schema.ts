@@ -48,6 +48,32 @@ export const importRows = sqliteTable(
     uniqueIndex('import_line').on(t.importId, t.rowNumber),
   ],
 );
+export const trips = sqliteTable('trips', {
+  id: text().primaryKey(),
+  name: text().notNull(),
+  destination: text().notNull().default(''),
+  from: text().notNull(),
+  to: text().notNull(),
+  participants: text().notNull(),
+  split: text().notNull(),
+  context: text().notNull().default(''),
+  status: text().notNull().default('active'),
+  version: integer().notNull().default(1),
+  createdAt: text().notNull(),
+});
+export const splitTemplates = sqliteTable('split_templates', {
+  id: text().primaryKey(),
+  name: text().notNull(),
+  spec: text().notNull(),
+  category: text().notNull(),
+  version: integer().notNull().default(1),
+});
+export const merchantAliases = sqliteTable('merchant_aliases', {
+  id: text().primaryKey(),
+  pattern: text().notNull().unique(),
+  name: text().notNull(),
+  version: integer().notNull().default(1),
+});
 export const transactions = sqliteTable(
   'transactions',
   {
@@ -61,6 +87,8 @@ export const transactions = sqliteTable(
       .references(() => importRows.id),
     date: text().notNull(),
     postDate: text(),
+    tripId: text().references(() => trips.id),
+    source: text().notNull().default('import'),
     description: text().notNull(),
     amountCents: integer().notNull(),
     kind: text().notNull(),
@@ -77,6 +105,7 @@ export const transactions = sqliteTable(
   (t) => [
     index('transaction_state').on(t.state),
     index('transaction_date').on(t.date),
+    index('transaction_trip').on(t.tripId),
     index('transaction_review_order').on(t.state, t.updatedAt, t.id),
   ],
 );
@@ -163,9 +192,26 @@ export const workspaceSettings = sqliteTable('workspace_settings', {
   id: text().primaryKey().default('main'),
   timezone: text().notNull().default('America/Los_Angeles'),
   consentAt: text(),
+  onboardingDismissed: integer().notNull().default(0),
 });
 
 export const ledgerRevision = sqliteTable('ledger_revision', {
   id: text().primaryKey(),
   revision: integer().notNull().default(0),
 });
+
+export const attachments = sqliteTable(
+  'attachments',
+  {
+    id: text().primaryKey(),
+    transactionId: text()
+      .notNull()
+      .references(() => transactions.id, { onDelete: 'cascade' }),
+    name: text().notNull(),
+    mime: text().notNull(),
+    size: integer().notNull(),
+    data: text().notNull(),
+    createdAt: text().notNull(),
+  },
+  (t) => [index('attachment_transaction').on(t.transactionId)],
+);

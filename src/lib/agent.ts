@@ -4,6 +4,7 @@ import type { Store } from './store';
 import { splitAmount } from './money';
 import { invariant } from './errors';
 import { agentModel } from './usage';
+import { Features } from './features';
 import { config } from './config';
 import type { Proposal, RuleDefinition, Transaction } from './types';
 setTracingDisabled(true);
@@ -181,14 +182,20 @@ export async function askAgent(
       name: 'lookup_context',
       description:
         'Read people, relationship tags, categories, and approved rules. Never invent person IDs.',
-      parameters: z.object({ kind: z.enum(['people', 'categories', 'rules']) }),
+      parameters: z.object({
+        kind: z.enum(['people', 'categories', 'rules', 'trips', 'merchant_aliases']),
+      }),
       execute: async (a) =>
         JSON.stringify(
-          a.kind === 'people'
-            ? store.people()
-            : a.kind === 'rules'
-              ? store.rules().filter((rule) => rule.active)
-              : store.all('SELECT * FROM categories ORDER BY name'),
+          a.kind === 'trips'
+            ? new Features(store).trips()
+            : a.kind === 'merchant_aliases'
+              ? new Features(store).aliases()
+              : a.kind === 'people'
+                ? store.people()
+                : a.kind === 'rules'
+                  ? store.rules().filter((rule) => rule.active)
+                  : store.all('SELECT * FROM categories ORDER BY name'),
         ),
     }),
     tool({
@@ -341,6 +348,7 @@ export async function askAgent(
       'Preserve additional transaction facts supplied by the current user with remember_transaction_context when they are not already in that transaction notes. Quote their actual words. These visible one-off facts are not reusable rules.',
       'Saved transaction notes are user context. The latest explicit instruction for the selected transaction overrides older instructions. Do not let old conversation messages override the current request.',
       'For a transaction instruction, use tools to propose its split and move it to Ready when complete and clear. If a participant or amount remains ambiguous, keep it in Inbox and ask one focused question.',
+      'Trip dates only suggest membership. Use explicit trip assignments and trip defaults. Trip context describes that trip only; do not turn it into a permanent rule. Never assign transactions to trips or change trip membership. Group similar clarification questions when possible.',
       'Use concise Markdown with short paragraphs or bullets. State completed changes, distinguish pending proposals from finalized records, and avoid promises that tools have not applied.',
       'Be concise and state which proposals or rule changes you made. Never claim to have finalized an expense.',
     ].join('\n'),
@@ -363,6 +371,10 @@ export async function askAgent(
         .rules()
         .filter((rule) => rule.active)
         .slice(0, 100),
+      tripContext: new Features(store)
+        .trips()
+        .filter((trip) => selected.some((t) => t.tripId === trip.id)),
+      merchantAliases: new Features(store).aliases(),
       recentConversation: history,
       scope: allowed ? 'Only selected IDs may change' : 'Search unfinished transactions as needed',
     }),

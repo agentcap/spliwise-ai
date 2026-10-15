@@ -3,6 +3,7 @@ import { headers } from 'next/headers';
 import './globals.css';
 import './theme.css';
 import './assistant.css';
+import './workspace.css';
 
 export const metadata: Metadata = {
   title: 'Splitwise AI — A clearer share',

@@ -45,6 +45,9 @@ function RichReply({ text }: { text: string }) {
 }
 
 export default function ChatPanel({
+  scopeLabel,
+  scopeControl,
+  onReviewTransactions,
   messages,
   ruleChanges,
   rules,
@@ -64,6 +67,9 @@ export default function ChatPanel({
   onCancel,
   onRetry,
 }: {
+  scopeLabel: string;
+  scopeControl: React.ReactNode;
+  onReviewTransactions: () => void;
   messages: Message[];
   ruleChanges: RuleChange[];
   rules: Rule[];
@@ -285,6 +291,16 @@ export default function ChatPanel({
                   </div>
                 )}
                 {m.role === 'assistant' ? <RichReply text={m.text} /> : <p>{m.text}</p>}
+                {m.role === 'assistant' &&
+                  job?.status === 'completed' &&
+                  job.payload.ids?.length && (
+                    <div className="chat-result-card">
+                      <span>Changes saved · review before finalizing</span>
+                      <button className="quiet-button" onClick={onReviewTransactions}>
+                        Review proposals
+                      </button>
+                    </div>
+                  )}
               </article>
               {m.role === 'assistant' &&
                 m.jobId &&
@@ -311,13 +327,10 @@ export default function ChatPanel({
         </button>
       )}
       <div className="chat-compose">
+        {scopeControl}
         <div className="chat-scope">
           <ReceiptText size={13} />
-          <span>
-            {selected.length
-              ? selected.length + ' selected expense' + (selected.length === 1 ? '' : 's')
-              : 'All unfinished expenses'}
-          </span>
+          <span>{scopeLabel}</span>
           {selected.length > 0 && (
             <button
               aria-label="Clear chat selection"

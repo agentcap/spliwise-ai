@@ -1,0 +1,1 @@
+CREATE INDEX `transaction_trip` ON `transactions` (`tripId`);

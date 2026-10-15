@@ -32,7 +32,7 @@ export default function ThemeToggle() {
     }
   }
 
-  const label = theme === 'dark' ? 'Switch to light theme' : 'Switch to Dracula theme';
+  const label = theme === 'dark' ? 'Switch to light theme' : 'Switch to dark theme';
   return (
     <button
       type="button"
@@ -42,9 +42,7 @@ export default function ThemeToggle() {
       title={label}
     >
       {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
-      <span className="theme-toggle-label">
-        {theme === 'dark' ? 'Light theme' : 'Dracula theme'}
-      </span>
+      <span className="theme-toggle-label">{theme === 'dark' ? 'Light theme' : 'Dark theme'}</span>
     </button>
   );
 }
