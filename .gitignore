@@ -1,0 +1,17 @@
+node_modules/
+.next/
+.tools/
+.env*
+!.env.example
+data/
+backups/
+test-results/
+playwright-report/
+coverage/
+*.log
+*.sqlite*
+*.db*
+*.csv
+!tests/fixtures/*.csv
+next-env.d.ts
+tsconfig.tsbuildinfo

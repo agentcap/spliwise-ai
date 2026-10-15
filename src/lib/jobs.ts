@@ -1,0 +1,158 @@
+import type { Store } from './store';
+import { askAgent, type AgentPlan } from './agent';
+import { ruleProposal } from './rules';
+import type { AgentJob } from './types';
+const timestamp = () => new Date().toISOString();
+export function claimJob(store: Store): AgentJob | undefined {
+  return store.db
+    .transaction(() => {
+      store.db
+        .prepare(
+          "UPDATE jobs SET status='cancelled',updatedAt=? WHERE cancelRequested=1 AND status IN ('queued','running') AND leaseUntil<?",
+        )
+        .run(timestamp(), Date.now());
+      const row = store.one<{ id: string }>(
+        "SELECT id FROM jobs WHERE cancelRequested=0 AND (status='queued' OR (status='running' AND leaseUntil<?)) ORDER BY createdAt LIMIT 1",
+        Date.now(),
+      );
+      if (!row) return;
+      store.db
+        .prepare("UPDATE jobs SET status='running',leaseUntil=?,updatedAt=? WHERE id=?")
+        .run(Date.now() + 30000, timestamp(), row.id);
+      return store.job(row.id);
+    })
+    .immediate();
+}
+export function applyStep(
+  store: Store,
+  jobId: string,
+  cursor: number,
+  plan: AgentPlan,
+  nextCursor: number,
+  progress: number,
+): void {
+  store.db
+    .transaction(() => {
+      const job = store.job(jobId);
+      if (job.cancelRequested) throw new Error('Job cancelled.');
+      if (job.cursor !== cursor) return;
+      const updates = plan.updates.filter((u) => {
+        const t = store.transaction(u.id);
+        return t.state !== 'finalized' && t.version === u.version;
+      });
+      const skipped = plan.updates.length - updates.length;
+      if (updates.length) store.saveProposals(updates, 'agent', jobId + ':' + cursor + ':splits');
+      plan.rules.forEach((r, i) =>
+        store.proposeRule(
+          r.title,
+          r.definition,
+          r.ruleId,
+          'agent',
+          jobId + ':' + cursor + ':rule:' + i,
+        ),
+      );
+      if (plan.message)
+        store.addMessage(
+          'assistant',
+          plan.message +
+            (skipped ? ' ' + skipped + ' changed transaction(s) were left untouched.' : ''),
+          jobId,
+        );
+      store.db
+        .prepare('UPDATE jobs SET cursor=?,progress=?,result=?,updatedAt=? WHERE id=?')
+        .run(nextCursor, progress, plan.message, timestamp(), jobId);
+    })
+    .immediate();
+}
+export async function executeJob(store: Store, job: AgentJob, signal?: AbortSignal): Promise<void> {
+  if (job.kind === 'chat') {
+    if (job.cursor === 0) {
+      const plan = await askAgent(store, job.payload.text!, job.payload.ids, signal);
+      applyStep(store, job.id, 0, plan, 1, 100);
+    }
+  } else {
+    const ids = job.payload.ids || [];
+    for (let cursor = job.cursor; cursor < ids.length; cursor += 20) {
+      if (signal?.aborted || store.job(job.id).cancelRequested) throw new Error('Job cancelled.');
+      const batch = ids
+        .slice(cursor, cursor + 20)
+        .map((id) => store.transaction(id))
+        .filter((t) => t.state !== 'finalized');
+      const plan: AgentPlan = { message: '', updates: [], rules: [] };
+      const needsAI: string[] = [];
+      for (const tx of batch) {
+        if (tx.instruction) {
+          needsAI.push(tx.id);
+          continue;
+        }
+        if (tx.amountCents < 0) {
+          const refund = store.refundProposal(tx);
+          plan.updates.push({
+            id: tx.id,
+            version: tx.version,
+            proposal: refund || null,
+            state: refund ? 'ready' : 'inbox',
+            attention: refund
+              ? ''
+              : 'Which purchase does this refund belong to? Choose a finalized purchase or provide an allocation.',
+          });
+          continue;
+        }
+        const matched = ruleProposal(tx, store.rules());
+        if (matched.proposal || matched.error)
+          plan.updates.push({
+            id: tx.id,
+            version: tx.version,
+            proposal: matched.proposal || null,
+            state: matched.proposal ? 'ready' : 'inbox',
+            attention: matched.error,
+          });
+        else needsAI.push(tx.id);
+      }
+      if (needsAI.length && (process.env.OPENAI_API_KEY || process.env.AGENT_MODE === 'mock')) {
+        const ai = await askAgent(
+          store,
+          'Process the selected unfinished transactions. Follow their saved individual instructions and approved rules. Infer only when the evidence is strong; otherwise ask a focused question.',
+          needsAI,
+          signal,
+        );
+        plan.updates.push(...ai.updates);
+        plan.rules.push(...ai.rules);
+      } else {
+        for (const id of needsAI) {
+          const tx = store.transaction(id);
+          plan.updates.push({
+            id,
+            version: tx.version,
+            proposal: null,
+            state: 'inbox',
+            attention:
+              'No approved rule matches. Add a rule, edit the split manually, or enable AI with your API key.',
+          });
+        }
+      }
+      const next = Math.min(cursor + 20, ids.length);
+      plan.message =
+        'Processed ' +
+        next +
+        ' of ' +
+        ids.length +
+        ' transactions. ' +
+        plan.updates.filter((u) => u.state === 'ready').length +
+        ' proposals ready in this batch.';
+      applyStep(
+        store,
+        job.id,
+        cursor,
+        plan,
+        next,
+        Math.round((next / Math.max(1, ids.length)) * 100),
+      );
+    }
+  }
+  store.db
+    .prepare(
+      "UPDATE jobs SET status='completed',progress=100,leaseUntil=0,updatedAt=? WHERE id=? AND cancelRequested=0",
+    )
+    .run(timestamp(), job.id);
+}

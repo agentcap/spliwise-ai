@@ -1,0 +1,7 @@
+node_modules
+.next
+.tools
+data
+test-results
+drizzle/meta
+package-lock.json
