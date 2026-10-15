@@ -12,6 +12,7 @@ export const splitSchema = z.object({
 });
 export const ruleDefinitionSchema = z.object({
   merchant: z.string().max(200),
+  merchantAliases: z.array(z.string().min(1).max(200)).max(199).nullable(),
   category: z.string().nullable(),
   accountId: z.string().nullable(),
   from: z.string().nullable(),
@@ -22,6 +23,7 @@ export const ruleDefinitionSchema = z.object({
 export function cleanRule(d: z.infer<typeof ruleDefinitionSchema>): RuleDefinition {
   return {
     merchant: d.merchant,
+    merchantAliases: d.merchantAliases || undefined,
     category: d.category || undefined,
     accountId: d.accountId || undefined,
     from: d.from || undefined,
@@ -176,7 +178,7 @@ export async function askAgent(
           a.kind === 'people'
             ? store.people()
             : a.kind === 'rules'
-              ? store.rules()
+              ? store.rules().filter((rule) => rule.active)
               : store.all('SELECT * FROM categories ORDER BY name'),
         ),
     }),
@@ -290,7 +292,10 @@ export async function askAgent(
       execute: async (a) => {
         const definition = cleanRule(a.definition);
         store.validateRule(definition);
-        invariant(!a.ruleId || store.rules().some((r) => r.id === a.ruleId), 'Unknown rule.');
+        invariant(
+          !a.ruleId || store.rules().some((r) => r.id === a.ruleId && r.active),
+          'Unknown or inactive rule.',
+        );
         plan.rules.push({ title: a.title, definition, ruleId: a.ruleId || undefined });
         return 'Rule proposed only. It is inactive until reviewed.';
       },
@@ -345,7 +350,7 @@ export async function askAgent(
       userInstruction: text,
       selectedTransactions: allowed ? selected : [],
       people: store.people(),
-      approvedRules: store.rules(),
+      approvedRules: store.rules().filter((rule) => rule.active),
       recentConversation: history,
       scope: allowed ? 'Only selected IDs may change' : 'Search unfinished transactions as needed',
     }),

@@ -25,14 +25,16 @@ import {
   Leaf,
   RefreshCw,
   ReceiptText,
+  Trash2,
 } from 'lucide-react';
 import { money } from '@/lib/money';
 import type { Snapshot, Transaction, Rule, ImportPreview } from '@/lib/types';
 import QuickInstruction from './quick-instruction';
 import TransactionContext from './transaction-context';
 import ChatPanel from './chat-panel';
+import { DeleteRuleDialog, OptimizeRulesDialog } from './rule-management';
 import ThemeToggle from './theme-toggle';
-import { api, Modal, ruleDescription, ActionErrorContext } from './ui';
+import { api, Modal, ruleDescription, merchantLabel, ActionErrorContext } from './ui';
 import { ImportDialog, PersonDialog, RepaymentDialog, SplitDialog, RuleDialog } from './dialogs';
 type View = 'overview' | 'review' | 'finalized' | 'people' | 'rules' | 'imports';
 export default function Workspace() {
@@ -59,7 +61,9 @@ export default function Workspace() {
     [personDetail, setPersonDetail] = useState<string | null>(null),
     [editTx, setEditTx] = useState<Transaction | null>(null),
     [detailTxId, setDetailTxId] = useState<string | null>(null),
-    [ruleEditor, setRuleEditor] = useState<Rule | 'new' | null>(null);
+    [ruleEditor, setRuleEditor] = useState<Rule | 'new' | null>(null),
+    [deletingRule, setDeletingRule] = useState<Rule | null>(null),
+    [optimizingRules, setOptimizingRules] = useState(false);
   const fetchData = useCallback(async () => {
     const q = new URLSearchParams();
     if (from) q.set('from', from);
@@ -1163,71 +1167,85 @@ export default function Workspace() {
               <>
                 <div className="section-title">
                   <div>
-                    <h2>Your instructions, remembered</h2>
-                    <p>Every new or edited rule needs approval.</p>
+                    <h2>Your reusable rules</h2>
+                    <p>
+                      Rules define splits. People and transaction context are stored separately.
+                    </p>
                   </div>
-                  <button className="primary" onClick={() => setRuleEditor('new')}>
-                    <Plus size={16} />
-                    Propose rule
-                  </button>
+                  <div className="rule-page-actions">
+                    <button className="quiet-button" onClick={() => setOptimizingRules(true)}>
+                      <Sparkles size={15} /> Optimize rules
+                    </button>
+                    <button className="primary" onClick={() => setRuleEditor('new')}>
+                      <Plus size={16} /> Propose rule
+                    </button>
+                  </div>
                 </div>
                 {data.ruleChanges
                   .filter((r) => r.status === 'proposed')
-                  .map((c) => (
-                    <article className="rule-card proposed" key={c.id}>
-                      <div className="rule-top">
-                        <span className="pill amber">Needs your approval</span>
-                        <h3>{c.title}</h3>
-                      </div>
-                      {c.ruleId && (
-                        <div className="rule-before">
-                          <small>Previously</small>
-                          <p>
-                            {ruleDescription(
-                              data.rules.find((r) => r.id === c.ruleId)!.definition,
-                              data.people,
-                            )}
-                          </p>
+                  .map((c) => {
+                    const current = data.rules.find((rule) => rule.id === c.ruleId);
+                    const stale =
+                      !!c.ruleId && (!current?.active || current.version !== c.baseVersion);
+                    return (
+                      <article className="rule-card proposed" key={c.id}>
+                        <div className="rule-top">
+                          <span className="pill amber">Needs your approval</span>
+                          <h3>{c.title}</h3>
                         </div>
-                      )}
-                      <p>
-                        <b>{c.definition.merchant || 'Any merchant'}</b>
-                        {c.definition.category ? ' · ' + c.definition.category : ''}
-                        {c.definition.accountId
-                          ? ' · ' + data.accounts.find((a) => a.id === c.definition.accountId)?.name
-                          : ''}
-                      </p>
-                      <p>{ruleDescription(c.definition, data.people)}</p>
-                      <small>
-                        {c.definition.from || 'Any date'} → {c.definition.to || 'Any date'}
-                      </small>
-                      <footer>
-                        <button
-                          className="quiet-button"
-                          onClick={() =>
-                            action(
-                              () => api('rules/review', { id: c.id, approve: false }),
-                              'Rule proposal rejected.',
-                            )
-                          }
-                        >
-                          Reject
-                        </button>
-                        <button
-                          className="primary"
-                          onClick={() =>
-                            action(
-                              () => api('rules/review', { id: c.id, approve: true }),
-                              'Rule activated. Process Inbox to apply it.',
-                            )
-                          }
-                        >
-                          <Check size={15} />
-                          Approve rule
-                        </button>
-                      </footer>
-                    </article>
-                  ))}
+                        {c.ruleId && current && (
+                          <div className="rule-before">
+                            <small>Previously</small>
+                            <p>{ruleDescription(current.definition, data.people)}</p>
+                          </div>
+                        )}
+                        <p>
+                          <b>{merchantLabel(c.definition)}</b>
+                          {c.definition.category ? ' · ' + c.definition.category : ''}
+                          {c.definition.accountId
+                            ? ' · ' +
+                              data.accounts.find((a) => a.id === c.definition.accountId)?.name
+                            : ''}
+                        </p>
+                        <p>{ruleDescription(c.definition, data.people)}</p>
+                        <small>
+                          {c.definition.from || 'Any date'} → {c.definition.to || 'Any date'}
+                        </small>
+                        {stale && (
+                          <p className="error-text">
+                            This rule changed or was deleted. Reject this proposal and propose the
+                            change again.
+                          </p>
+                        )}
+                        <footer>
+                          <button
+                            className="quiet-button"
+                            onClick={() =>
+                              action(
+                                () => api('rules/review', { id: c.id, approve: false }),
+                                'Rule proposal rejected.',
+                              )
+                            }
+                          >
+                            Reject
+                          </button>
+                          <button
+                            className="primary"
+                            disabled={stale}
+                            onClick={() =>
+                              action(
+                                () => api('rules/review', { id: c.id, approve: true }),
+                                'Rule activated. Process Inbox to apply it.',
+                              )
+                            }
+                          >
+                            <Check size={15} />
+                            Approve rule
+                          </button>
+                        </footer>
+                      </article>
+                    );
+                  })}
                 {data.rules
                   .filter((r) => r.active)
                   .map((r) => (
@@ -1241,9 +1259,17 @@ export default function Workspace() {
                         <button className="text-button" onClick={() => setRuleEditor(r)}>
                           Propose edit
                         </button>
+                        <button
+                          className="icon-button delete-rule-button"
+                          aria-label={'Delete ' + r.title}
+                          title="Delete rule"
+                          onClick={() => setDeletingRule(r)}
+                        >
+                          <Trash2 size={16} />
+                        </button>
                       </div>
                       <p>
-                        <b>{r.definition.merchant || 'Any merchant'}</b> ·{' '}
+                        <b>{merchantLabel(r.definition)}</b> ·{' '}
                         {ruleDescription(r.definition, data.people)}
                       </p>
                       <small>
@@ -1254,16 +1280,17 @@ export default function Workspace() {
                       </small>
                     </article>
                   ))}
-                {!data.rules.length && !data.ruleChanges.some((r) => r.status === 'proposed') && (
-                  <div className="empty-state panel">
-                    <SlidersHorizontal />
-                    <h3>Start with something you know.</h3>
-                    <p>For example: “Supercharging is split equally with @someone.”</p>
-                    <button className="quiet-button" onClick={() => setRuleEditor('new')}>
-                      Create your first rule
-                    </button>
-                  </div>
-                )}
+                {!data.rules.some((rule) => rule.active) &&
+                  !data.ruleChanges.some((r) => r.status === 'proposed') && (
+                    <div className="empty-state panel">
+                      <SlidersHorizontal />
+                      <h3>Start with something you know.</h3>
+                      <p>For example: “Supercharging is split equally with @someone.”</p>
+                      <button className="quiet-button" onClick={() => setRuleEditor('new')}>
+                        Create your first rule
+                      </button>
+                    </div>
+                  )}
               </>
             )}
             {view === 'imports' && (
@@ -1567,6 +1594,52 @@ export default function Workspace() {
                 }, 'Instruction saved. Generate revised splits when ready.')
               )
                 setEditTx(null);
+            }}
+          />
+        )}
+        {deletingRule && (
+          <DeleteRuleDialog
+            rule={deletingRule}
+            data={data}
+            affected={
+              data.transactions.filter(
+                (tx) => tx.state !== 'finalized' && tx.proposal?.ruleId === deletingRule.id,
+              ).length
+            }
+            onClose={() => setDeletingRule(null)}
+            onDelete={async (rule) => {
+              const result = await api<{ affected: number }>('rules/delete', {
+                id: rule.id,
+                version: rule.version,
+              });
+              await fetchData();
+              setDeletingRule(null);
+              setNotice({
+                text:
+                  'Rule deleted. ' +
+                  (result.affected
+                    ? result.affected + ' unfinished proposals returned to Inbox. '
+                    : '') +
+                  'Undo restores it.',
+              });
+            }}
+          />
+        )}
+        {optimizingRules && (
+          <OptimizeRulesDialog
+            data={data}
+            onClose={() => setOptimizingRules(false)}
+            onApplied={async (removed) => {
+              await fetchData();
+              setOptimizingRules(false);
+              setNotice({
+                text:
+                  'Rule cleanup complete. ' +
+                  removed +
+                  ' redundant rule' +
+                  (removed === 1 ? '' : 's') +
+                  ' removed. Undo restores the batch.',
+              });
             }}
           />
         )}

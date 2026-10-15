@@ -2,6 +2,7 @@
 import { useEffect, useRef, createContext, useContext } from 'react';
 import { X } from 'lucide-react';
 import { money } from '@/lib/money';
+export { merchantLabel } from '@/lib/rule-definition';
 import type { Person, RuleDefinition } from '@/lib/types';
 export const ActionErrorContext = createContext<string | null>(null);
 export async function api<T = unknown>(path: string, body?: unknown): Promise<T> {

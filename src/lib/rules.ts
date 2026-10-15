@@ -1,13 +1,15 @@
 import { splitAmount } from './money';
-import { normalizedDescription } from './importer';
+import { merchantPatterns, normalizeMerchant, outcomeKey, specificity } from './rule-definition';
 import type { Rule, Transaction, Proposal } from './types';
 export function matchingRules(tx: Transaction, rules: Rule[]): Rule[] {
   return rules.filter((r) => {
     const d = r.definition;
     return (
       r.active &&
-      (!d.merchant ||
-        normalizedDescription(tx.description).includes(normalizedDescription(d.merchant))) &&
+      (!merchantPatterns(d).length ||
+        merchantPatterns(d).some((pattern) =>
+          normalizeMerchant(tx.description).includes(pattern),
+        )) &&
       (!d.category || tx.bankCategory.toLowerCase() === d.category.toLowerCase()) &&
       (!d.accountId || d.accountId === tx.accountId) &&
       (!d.from || tx.date >= d.from) &&
@@ -21,16 +23,9 @@ export function ruleProposal(
 ): { proposal?: Proposal; error?: string } {
   const matches = matchingRules(tx, rules);
   if (!matches.length) return {};
-  const specificity = (r: Rule) =>
-    (r.definition.from || r.definition.to ? 4 : 0) +
-    (r.definition.accountId ? 2 : 0) +
-    (r.definition.category ? 1 : 0) +
-    (r.definition.merchant ? 1 : 0);
-  const max = Math.max(...matches.map(specificity));
-  const best = matches.filter((r) => specificity(r) === max);
-  const outcomes = new Set(
-    best.map((r) => JSON.stringify([r.definition.split, r.definition.outputCategory])),
-  );
+  const max = Math.max(...matches.map((rule) => specificity(rule.definition)));
+  const best = matches.filter((r) => specificity(r.definition) === max);
+  const outcomes = new Set(best.map((r) => outcomeKey(r.definition)));
   if (outcomes.size > 1)
     return {
       error: 'Conflicting rules: ' + best.map((r) => r.title).join(', ') + '. Which should apply?',

@@ -656,3 +656,156 @@ describe('rule approval inside chat', () => {
     expect(store.ruleChanges().find((c) => c.id === older)?.status).toBe('proposed');
   });
 });
+
+describe('rule deletion and reviewed optimization', () => {
+  function activate(title: string, definition: RuleDefinition) {
+    const change = store.proposeRule(title, definition);
+    store.reviewRule(change, true);
+    return store.rules().find((r) => r.title === title)!;
+  }
+  it('accepts an empty alternative list for an any-merchant rule and rejects hidden or blank alternatives', () => {
+    const definition: RuleDefinition = {
+      merchant: '',
+      merchantAliases: [],
+      outputCategory: 'Personal',
+      split: { mode: 'personal', participants: ['self'] },
+    };
+    const rule = activate('All merchants', definition);
+    expect(ruleProposal(ingest(csv(row()))[0], [rule]).proposal?.category).toBe('Personal');
+    expect(() => store.validateRule({ ...definition, merchantAliases: ['COFFEE'] })).toThrow(
+      /nonempty/,
+    );
+    expect(() =>
+      store.validateRule({ ...definition, merchant: 'COFFEE', merchantAliases: [' '] }),
+    ).toThrow(/nonempty/);
+  });
+  it('deletes a rule reversibly, resets unfinished rule proposals, and preserves finalized notes and balances', () => {
+    const person = store.addPerson('Alex', 'alex');
+    const rule = activate('Coffee', {
+      merchant: 'COFFEE',
+      outputCategory: 'Food & Drink',
+      split: { mode: 'equal', participants: ['self', person.id] },
+    });
+    const [ready, accepted] = ingest(csv(row(), row('01/11/2026')));
+    for (const tx of [ready, accepted])
+      store.saveProposals(
+        [
+          {
+            id: tx.id,
+            version: tx.version,
+            state: 'ready',
+            proposal: ruleProposal(tx, [rule]).proposal!,
+          },
+        ],
+        'agent',
+      );
+    store.review([{ id: accepted.id, version: store.transaction(accepted.id).version }], 'approve');
+    const finalized = store.transaction(accepted.id);
+    const baseline = store.snapshot().dashboard.totalOutstandingCents;
+    expect(() => store.deleteRule(rule.id, rule.version, 'agent')).toThrow(/Only you/);
+    expect(() => store.deleteRule(rule.id, rule.version + 1)).toThrow(/changed/);
+    expect(store.deleteRule(rule.id, rule.version)).toBe(1);
+    expect(store.rules().find((r) => r.id === rule.id)?.active).toBe(0);
+    expect(store.transaction(ready.id)).toMatchObject({ state: 'inbox', proposal: null });
+    expect(store.transaction(accepted.id)).toEqual(finalized);
+    expect(store.snapshot().dashboard.totalOutstandingCents).toBe(baseline);
+    store.undo();
+    expect(store.rules().find((r) => r.id === rule.id)?.active).toBe(1);
+    expect(store.transaction(ready.id).state).toBe('ready');
+    expect(store.transaction(accepted.id)).toEqual(finalized);
+  });
+  it('reviews cleanup before applying, rebinds unchanged proposals, and persists complete Undo across restart', () => {
+    const person = store.addPerson('Alex', 'alex');
+    const definition: RuleDefinition = {
+      merchant: 'COFFEE',
+      outputCategory: 'Food & Drink',
+      split: { mode: 'equal', participants: ['self', person.id] },
+    };
+    const a = activate('Coffee A', definition);
+    activate('Coffee B', {
+      ...definition,
+      split: { mode: 'equal', participants: [person.id, 'self'] },
+    });
+    activate('Tea', { ...definition, merchant: 'TEA' });
+    const [ready, accepted] = ingest(csv(row(), row('01/11/2026')));
+    for (const tx of [ready, accepted])
+      store.saveProposals(
+        [
+          {
+            id: tx.id,
+            version: tx.version,
+            state: 'ready',
+            proposal: ruleProposal(tx, [a]).proposal!,
+          },
+        ],
+        'agent',
+      );
+    store.review([{ id: accepted.id, version: store.transaction(accepted.id).version }], 'approve');
+    const before = store.transaction(accepted.id);
+    const preview = store.previewRuleOptimization();
+    expect(preview.groups).toHaveLength(1);
+    expect(preview.groups[0].rebindCount).toBe(1);
+    expect(store.rules().filter((r) => r.active)).toHaveLength(3);
+    expect(() =>
+      store.applyRuleOptimization(preview.revision, [preview.groups[0].id], 'agent'),
+    ).toThrow(/Only you/);
+    expect(store.applyRuleOptimization(preview.revision, [preview.groups[0].id]).removed).toBe(2);
+    const fresh = store.transaction(ready.id);
+    expect(fresh.state).toBe('ready');
+    expect(fresh.proposal?.splits).toEqual(ruleProposal(ready, [a]).proposal?.splits);
+    expect(() => store.validateProposal(fresh, fresh.proposal!, true)).not.toThrow();
+    expect(store.transaction(accepted.id)).toEqual(before);
+    expect(store.rules().filter((r) => r.active)).toHaveLength(1);
+    expect(store.previewRuleOptimization().groups).toHaveLength(0);
+    store.db.close();
+    store = new Store(openDatabase(join(dir, 'test.sqlite')));
+    store.undo();
+    expect(store.rules().filter((r) => r.active)).toHaveLength(3);
+    expect(store.transaction(ready.id).proposal?.ruleId).toBe(a.id);
+    expect(store.transaction(accepted.id)).toEqual(before);
+  });
+  it('rejects stale previews after a rule or unfinished proposal changes and rejects invented group IDs atomically', () => {
+    const def: RuleDefinition = {
+      merchant: 'COFFEE',
+      outputCategory: 'Personal',
+      split: { mode: 'personal', participants: ['self'] },
+    };
+    const a = activate('A', def),
+      b = activate('B', def);
+    const preview = store.previewRuleOptimization();
+    expect(() => store.applyRuleOptimization(preview.revision, ['invented'])).toThrow(/selection/);
+    const tx = ingest(csv(row()))[0];
+    store.saveProposals(
+      [
+        {
+          id: tx.id,
+          version: tx.version,
+          state: 'ready',
+          proposal: ruleProposal(tx, [a]).proposal!,
+        },
+      ],
+      'agent',
+    );
+    expect(() => store.applyRuleOptimization(preview.revision, [preview.groups[0].id])).toThrow(
+      /changed/,
+    );
+    const next = store.previewRuleOptimization();
+    store.deleteRule(b.id, b.version);
+    expect(() => store.applyRuleOptimization(next.revision, [next.groups[0].id])).toThrow(
+      /changed/,
+    );
+    expect(store.rules().find((r) => r.id === a.id)?.active).toBe(1);
+  });
+  it('does not permit a pending edit to reactivate a deleted rule', () => {
+    const def: RuleDefinition = {
+      merchant: 'COFFEE',
+      outputCategory: 'Personal',
+      split: { mode: 'personal', participants: ['self'] },
+    };
+    const rule = activate('A', def);
+    const edit = store.proposeRule('Edited', def, rule.id);
+    store.deleteRule(rule.id, rule.version);
+    expect(() => store.reviewRule(edit, true)).toThrow(/deleted/);
+    expect(() => store.proposeRule('New edit', def, rule.id)).toThrow(/no longer active/);
+  });
+});

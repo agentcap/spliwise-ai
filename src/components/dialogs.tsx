@@ -4,6 +4,7 @@ import { ArrowRight, Check, FileUp, LoaderCircle, Plus, ShieldCheck, Sparkles } 
 import { money, cents, splitAmount, linkedRefundShares } from '@/lib/money';
 import type { Snapshot, Transaction, ImportPreview, SplitSpec, Rule } from '@/lib/types';
 import MentionInput from './mention-input';
+import { merchantPatterns } from '@/lib/rule-definition';
 import { api, Modal } from './ui';
 const today = () => {
   const d = new Date();
@@ -462,7 +463,7 @@ export function RuleDialog({
 }) {
   const d = rule?.definition;
   const [title, setTitle] = useState(rule?.title || ''),
-    [merchant, setMerchant] = useState(d?.merchant || ''),
+    [merchant, setMerchant] = useState(d ? merchantPatterns(d).join('\n') : ''),
     [accountId, setAccountId] = useState(d?.accountId || ''),
     [bankCategory, setBankCategory] = useState(d?.category || ''),
     [from, setFrom] = useState(d?.from || ''),
@@ -493,7 +494,16 @@ export function RuleDialog({
               title,
               ruleId: rule?.id,
               definition: {
-                merchant,
+                merchant:
+                  merchant
+                    .split('\n')
+                    .map((value) => value.trim())
+                    .filter(Boolean)[0] || '',
+                merchantAliases: merchant
+                  .split('\n')
+                  .map((value) => value.trim())
+                  .filter(Boolean)
+                  .slice(1),
                 accountId: accountId || undefined,
                 category: bankCategory || undefined,
                 from: from || undefined,
@@ -519,10 +529,11 @@ export function RuleDialog({
         </label>
         <label>
           Merchant description contains
-          <input
+          <textarea
+            rows={2}
             value={merchant}
             onChange={(e) => setMerchant(e.target.value)}
-            placeholder="TESLA SUPERCHARGER (blank means any merchant)"
+            placeholder="One merchant alternative per line (blank means any merchant)"
           />
         </label>
         <div className="form-grid">

@@ -64,6 +64,7 @@ export interface Transaction {
 }
 export interface RuleDefinition {
   merchant: string;
+  merchantAliases?: string[];
   category?: string;
   accountId?: string;
   from?: string;
@@ -77,6 +78,23 @@ export interface Rule {
   definition: RuleDefinition;
   version: number;
   active: number;
+}
+export interface RuleOptimizationGroup {
+  id: string;
+  kind: 'duplicates' | 'merge';
+  rules: Rule[];
+  keepRuleId: string;
+  title: string;
+  definition: RuleDefinition;
+  duplicateCount: number;
+  rebindCount: number;
+  resetCount: number;
+}
+export interface RuleOptimizationPreview {
+  revision: string;
+  scannedCount: number;
+  groups: RuleOptimizationGroup[];
+  conflicts: { titles: string[]; reason: string }[];
 }
 export interface RuleChange {
   id: string;

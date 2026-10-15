@@ -51,6 +51,14 @@ Chat supports Markdown replies, growing input, Enter-to-send, live reply text an
 
 Conversation and context timestamps default to **America/Los_Angeles**. Set **NEXT_PUBLIC_TIME_ZONE** before starting if you use another timezone.
 
+## Rules, context, and cleanup
+
+Keep allocation **rules** separate from descriptive **context**. A rule says what to do (for example, split DoorDash equally with a named person). Context says what something means (for example, that person is a roommate, or a purchase was for a hiking trip). Person relationships and saved transaction notes already live outside the rule definitions. General user-profile facts should have their own context records rather than being converted silently into allocation rules.
+
+The Rules & context page includes **Delete rule** and **Optimize rules**. Delete retains the rule in history, returns its unfinished rule-based proposals to Inbox, and supports Undo; finalized splits and transaction context remain intact.
+
+Optimize runs locally without an API call. Its preview identifies normalized duplicates and merges rules whose only difference is their merchant alternatives. Card, bank-category, date scopes, split amounts/percentages, and output category must agree. Merchant alternatives are an OR list; matching coverage and precedence remain the same. Conflicting instructions are flagged for review. Select cleanup groups and apply them as one atomic, undoable batch. A changed rule or unfinished proposal invalidates the preview and requires refresh. Valid unfinished proposals retain their allocations and reference the surviving rule; outdated proposals return to Inbox.
+
 ## Workflow
 
 1. **Add people.** Choose a unique @handle and an optional relationship. Mention autocomplete supports arrow keys and Enter. Mentions resolve to stable person IDs.
@@ -58,7 +66,7 @@ Conversation and context timestamps default to **America/Los_Angeles**. Set **NE
 3. **Process now or later.** New expenses/refunds start in Inbox. Card payments stay in import history and never affect balances.
 4. **Review.** Approved rules run first. High-confidence AI inferences may enter Ready; uncertain items remain in Inbox. Expand merchant groups and approve/reject individually or in bulk. Approve immediately finalizes a split.
 5. **Correct.** Enter personal, equal, exact, or percentage splits directly. Or save individual instructions and use Generate revised splits. Remembering an instruction proposes a rule; it does not activate it.
-6. **Approve rules.** Every new/edit proposal waits on Rules & context. Date/card/category scopes override broader instructions. Conflicting equally applicable rules require clarification. Reprocess selected unfinished expenses to apply newly approved rules.
+6. **Approve rules.** Every new/edit proposal waits for your approval in chat or Rules & context. Date/card/category scopes override broader instructions. Conflicting equally applicable rules require clarification. Reprocess selected unfinished expenses to apply newly approved rules.
 7. **Settle up.** Record repayments, partial repayments, and returns of available credit. Open a person’s card for expense/repayment details.
 8. **Undo.** Reverse the latest completed review, agent, rule, or repayment batch; repeat across sessions. Imports and adding people are retained. No redo.
 
@@ -118,6 +126,9 @@ All routes start with **/api**. Mutation bodies are JSON except multipart previe
 | POST   | /transactions/review                 | Atomic approve/reject/reopen/correct with IDs and expected versions |
 | POST   | /rules/propose                       | New/edit rule proposal                                              |
 | POST   | /rules/review                        | User approval/rejection                                             |
+| POST   | /rules/delete                        | Version-checked deletion with persistent Undo                       |
+| GET    | /rules/optimize/preview              | Local duplicate/merge preview and revision                          |
+| POST   | /rules/optimize/apply                | Apply selected cleanup groups atomically with Undo                  |
 | POST   | /repayments                          | Person, date, positive cents, received/returned, note               |
 | POST   | /undo                                | Undo latest completed batch                                         |
 | POST   | /jobs                                | Process selected/Inbox transactions or chat                         |

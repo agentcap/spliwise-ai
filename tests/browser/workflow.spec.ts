@@ -325,3 +325,88 @@ test('approve a chat rule and process matching Inbox expenses without leaving re
   await expect(panel.getByText('Rule rejected', { exact: true })).toBeVisible();
   expect(errors).toEqual([]);
 });
+
+test('preview rule cleanup, merge merchant alternatives, delete and undo from the rulebook', async ({
+  page,
+  request,
+}) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  const definition = {
+    merchant: 'RULE OPT COFFEE',
+    accountId: 'prime',
+    from: '2026-01-01',
+    to: '2026-12-31',
+    outputCategory: 'Personal',
+    split: { mode: 'personal', participants: ['self'] },
+  };
+  for (const [title, merchant] of [
+    ['Cleanup coffee A', 'RULE OPT COFFEE'],
+    ['Cleanup coffee B', 'rule opt coffee'],
+    ['Cleanup tea', 'RULE OPT TEA'],
+  ]) {
+    const response = await request.post('/api/rules/propose', {
+      data: { title, definition: { ...definition, merchant } },
+    });
+    expect(response.ok()).toBe(true);
+    const change = await response.json();
+    expect(
+      (await request.post('/api/rules/review', { data: { id: change.id, approve: true } })).ok(),
+    ).toBe(true);
+  }
+  const before = (await (await request.get('/api/state')).json()) as Snapshot;
+  const cohortIds = before.rules
+    .filter((rule) => rule.title.startsWith('Cleanup '))
+    .map((rule) => rule.id);
+  const finalized = before.transactions.filter((tx) => tx.state === 'finalized');
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Rules & context', exact: false }).click();
+  await page.getByRole('button', { name: 'Optimize rules', exact: true }).click();
+  let dialog = page.getByRole('dialog');
+  await expect(dialog.getByText('Cleanup coffee A', { exact: true })).toBeVisible();
+  await expect(dialog.getByText('Cleanup tea', { exact: true })).toBeVisible();
+  let state = (await (await request.get('/api/state')).json()) as Snapshot;
+  expect(state.rules.filter((rule) => rule.active && cohortIds.includes(rule.id))).toHaveLength(3);
+  await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+  await page.getByRole('button', { name: 'Optimize rules', exact: true }).click();
+  dialog = page.getByRole('dialog');
+  await expect(dialog.getByText('Cleanup coffee A', { exact: true })).toBeVisible();
+  const group = dialog.locator('.optimization-group').filter({ hasText: 'Cleanup coffee A' });
+  await expect(
+    group.getByText('3 rules → 1 rule · 1 exact duplicate', { exact: true }),
+  ).toBeVisible();
+  await dialog.getByRole('button', { name: 'Apply 1 selected group', exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  state = (await (await request.get('/api/state')).json()) as Snapshot;
+  const merged = state.rules.find((rule) => rule.active && cohortIds.includes(rule.id))!;
+  expect(state.rules.filter((rule) => rule.active && cohortIds.includes(rule.id))).toHaveLength(1);
+  expect([merged.definition.merchant, ...(merged.definition.merchantAliases || [])].sort()).toEqual(
+    ['RULE OPT COFFEE', 'RULE OPT TEA'],
+  );
+  expect(state.transactions.filter((tx) => tx.state === 'finalized')).toEqual(finalized);
+  expect(state.dashboard.totalOutstandingCents).toBe(before.dashboard.totalOutstandingCents);
+  const mergedCard = page
+    .locator('.rule-card')
+    .filter({ has: page.getByRole('heading', { name: merged.title, exact: true }) });
+  await mergedCard.getByRole('button', { name: 'Propose edit', exact: true }).click();
+  await expect(page.getByRole('dialog').getByLabel('Merchant description contains')).toHaveValue(
+    'RULE OPT COFFEE\nRULE OPT TEA',
+  );
+  await page.getByRole('dialog').getByRole('button', { name: 'Cancel', exact: true }).click();
+  await mergedCard.getByRole('button', { name: 'Delete ' + merged.title, exact: true }).click();
+  dialog = page.getByRole('dialog');
+  await expect(
+    dialog.getByRole('heading', { name: 'Delete this rule?', exact: true }),
+  ).toBeVisible();
+  await dialog.getByRole('button', { name: 'Delete rule', exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  state = (await (await request.get('/api/state')).json()) as Snapshot;
+  expect(state.rules.filter((rule) => rule.active && cohortIds.includes(rule.id))).toHaveLength(0);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  state = (await (await request.get('/api/state')).json()) as Snapshot;
+  expect(state.rules.filter((rule) => rule.active && cohortIds.includes(rule.id))).toHaveLength(1);
+  await page.getByRole('button', { name: 'Undo', exact: true }).click();
+  state = (await (await request.get('/api/state')).json()) as Snapshot;
+  expect(state.rules.filter((rule) => rule.active && cohortIds.includes(rule.id))).toHaveLength(3);
+  expect(errors).toEqual([]);
+});

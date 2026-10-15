@@ -29,6 +29,10 @@ async function handle(req: Request, context: Context): Promise<Response> {
     const service = store();
     if (req.method === 'GET') {
       const url = new URL(req.url);
+      if (key === 'rules/optimize/preview')
+        return Response.json(service.previewRuleOptimization(), {
+          headers: { 'Cache-Control': 'no-store' },
+        });
       if (key === 'health') return Response.json({ ok: true });
       if (path[0] === 'imports' && path.length === 2) {
         const record = service.one<{ preview: string; summary: string }>(
@@ -169,12 +173,23 @@ async function handle(req: Request, context: Context): Promise<Response> {
       service.saveProposals([{ id: a.id, version: a.version, proposal, state: 'ready' }], 'user');
       return Response.json({ ok: true });
     }
+    if (key === 'rules/delete') {
+      const a = itemSchema.parse(body);
+      return Response.json({ affected: service.deleteRule(a.id, a.version) });
+    }
+    if (key === 'rules/optimize/apply') {
+      const a = z
+        .object({ revision: z.string().length(64), groupIds: z.array(z.string()).min(1).max(1000) })
+        .parse(body);
+      return Response.json(service.applyRuleOptimization(a.revision, a.groupIds));
+    }
     if (key === 'rules/propose') {
       const a = z
         .object({
           title: z.string(),
           definition: z.object({
             merchant: z.string(),
+            merchantAliases: z.array(z.string().min(1).max(200)).max(199).optional(),
             category: z.string().optional(),
             accountId: z.string().optional(),
             from: z.string().optional(),

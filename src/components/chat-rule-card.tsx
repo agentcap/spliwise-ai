@@ -2,7 +2,7 @@
 import { useRef, useState } from 'react';
 import { Check, LoaderCircle, SlidersHorizontal, X } from 'lucide-react';
 import type { Account, Person, Rule, RuleChange } from '@/lib/types';
-import { ruleDescription } from './ui';
+import { ruleDescription, merchantLabel } from './ui';
 
 export default function ChatRuleCard({
   change,
@@ -19,7 +19,8 @@ export default function ChatRuleCard({
 }) {
   const pending = change.status === 'proposed';
   const approved = change.status === 'approved';
-  const stale = pending && !!change.ruleId && (!current || current.version !== change.baseVersion);
+  const stale =
+    pending && !!change.ruleId && (!current?.active || current.version !== change.baseVersion);
   const [processInbox, setProcessInbox] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -50,7 +51,7 @@ export default function ChatRuleCard({
       <dl>
         <div>
           <dt>Merchant contains</dt>
-          <dd>{definition.merchant || 'Any merchant'}</dd>
+          <dd>{merchantLabel(definition)}</dd>
         </div>
         <div>
           <dt>Card</dt>

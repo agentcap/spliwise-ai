@@ -1,10 +1,11 @@
 import { randomUUID, createHash } from 'node:crypto';
 import type { Sqlite } from '../db';
 import { invariant, AppError } from './errors';
-import { isoDate, linkedRefundShares, cents } from './money';
+import { isoDate, linkedRefundShares, cents, splitAmount } from './money';
 import { parseStatement, normalizedDescription } from './importer';
 import { calculateDashboard } from './balances';
 import { matchingRules } from './rules';
+import { optimizeRules } from './rule-optimizer';
 import type {
   Account,
   Actor,
@@ -24,6 +25,8 @@ import type {
   TransactionState,
   Message,
   Category,
+  RuleOptimizationGroup,
+  RuleOptimizationPreview,
 } from './types';
 type Raw = Record<string, unknown>;
 type Undo = {
@@ -597,6 +600,15 @@ export class Store {
   validateRule(definition: RuleDefinition): void {
     invariant(definition.merchant.length <= 200, 'Merchant condition is too long.');
     invariant(
+      !definition.merchantAliases?.length ||
+        (definition.merchant.trim().length > 0 &&
+          definition.merchantAliases.length <= 199 &&
+          definition.merchantAliases.every(
+            (value) => value.trim().length > 0 && value.length <= 200,
+          )),
+      'Choose up to 200 nonempty merchant alternatives.',
+    );
+    invariant(
       definition.outputCategory.trim().length > 0 && definition.outputCategory.length <= 80,
       'Choose an output category.',
     );
@@ -645,7 +657,7 @@ export class Store {
     this.validateRule(definition);
     invariant(title.trim().length > 0 && title.length <= 160, 'Provide a rule title.');
     const existing = ruleId ? this.rules().find((r) => r.id === ruleId) : undefined;
-    invariant(!ruleId || existing, 'Rule not found.');
+    invariant(!ruleId || existing?.active, 'Rule is no longer active.');
     const id = randomUUID();
     this.batch(
       actor,
@@ -684,6 +696,11 @@ export class Store {
         if (approve) {
           this.validateRule(change.definition);
           const current = this.rules().find((r) => r.id === ruleId);
+          invariant(
+            !change.ruleId || current?.active,
+            'This rule was deleted. Create a new proposal.',
+            409,
+          );
           invariant(
             (current?.version || null) === change.baseVersion,
             'This rule changed. Propose the change again.',
@@ -737,6 +754,197 @@ export class Store {
         return {
           processed: ids.length,
           jobId: ids.length ? this.enqueue('process', { ids }) : undefined,
+        };
+      })
+      .immediate();
+  }
+  private nextRuleVersion() {
+    return this.one<{ n: number }>('SELECT COALESCE(MAX(sequence),0)+1 AS n FROM action_batches')!
+      .n;
+  }
+  private optimizationRevision() {
+    const active = this.rules()
+      .filter((rule) => rule.active)
+      .sort((a, b) => a.id.localeCompare(b.id))
+      .map((rule) => [rule.id, rule.version, rule.title, rule.definition]);
+    const proposals = this.transactions()
+      .filter((tx) => tx.state !== 'finalized' && tx.proposal?.ruleId)
+      .sort((a, b) => a.id.localeCompare(b.id))
+      .map((tx) => [tx.id, tx.version, tx.state, tx.proposal!.ruleId, tx.proposal!.ruleVersion]);
+    return createHash('sha256')
+      .update(JSON.stringify([active, proposals]))
+      .digest('hex');
+  }
+  private optimizedProposal(
+    tx: Transaction,
+    group: RuleOptimizationGroup,
+    version: number,
+  ): Proposal | null {
+    const original = group.rules.find((rule) => rule.id === tx.proposal?.ruleId);
+    if (
+      !original ||
+      tx.proposal?.ruleVersion !== original.version ||
+      tx.proposal.category !== group.definition.outputCategory ||
+      !matchingRules(tx, [
+        {
+          id: group.keepRuleId,
+          title: group.title,
+          definition: group.definition,
+          active: 1,
+          version,
+        },
+      ]).length
+    )
+      return null;
+    try {
+      const expected = splitAmount(tx.amountCents, group.definition.split);
+      if (
+        expected.length !== tx.proposal.splits.length ||
+        !expected.every((share) =>
+          tx.proposal!.splits.some(
+            (actual) =>
+              actual.personId === share.personId && actual.amountCents === share.amountCents,
+          ),
+        )
+      )
+        return null;
+      return {
+        ...tx.proposal,
+        ruleId: group.keepRuleId,
+        ruleVersion: version,
+        explanation: group.title,
+      };
+    } catch {
+      return null;
+    }
+  }
+  previewRuleOptimization(): RuleOptimizationPreview {
+    return this.db.transaction(() => {
+      const preview = optimizeRules(this.rules());
+      const unfinished = this.transactions().filter(
+        (tx) => tx.state !== 'finalized' && tx.proposal?.ruleId,
+      );
+      for (const group of preview.groups) {
+        for (const tx of unfinished.filter((tx) =>
+          group.rules.some((rule) => rule.id === tx.proposal!.ruleId),
+        )) {
+          if (this.optimizedProposal(tx, group, 1)) group.rebindCount++;
+          else group.resetCount++;
+        }
+      }
+      return { revision: this.optimizationRevision(), ...preview };
+    })();
+  }
+  deleteRule(id: string, version: number, actor: Actor = 'user'): number {
+    invariant(actor === 'user', 'Only you can delete reusable rules.', 403);
+    return this.db
+      .transaction(() => {
+        const rule = this.rules().find((rule) => rule.id === id);
+        invariant(rule?.active, 'Rule is no longer active.', 409);
+        invariant(rule.version === version, 'This rule changed. Refresh before deleting it.', 409);
+        const affected = this.transactions().filter(
+          (tx) => tx.state !== 'finalized' && tx.proposal?.ruleId === id,
+        );
+        this.batch(
+          actor,
+          'Delete rule: ' + rule.title,
+          [
+            { table: 'rules', id },
+            ...affected.map((tx) => ({ table: 'transactions' as const, id: tx.id })),
+          ],
+          (batchId) => {
+            this.db
+              .prepare('UPDATE rules SET active=0,version=? WHERE id=?')
+              .run(this.nextRuleVersion(), id);
+            for (const tx of affected)
+              this.db
+                .prepare(
+                  "UPDATE transactions SET state='inbox',proposal=NULL,attention=?,version=version+1,batchId=?,updatedAt=? WHERE id=?",
+                )
+                .run(
+                  'The rule for this proposal was deleted. Add an instruction or process Inbox with your remaining rules.',
+                  batchId,
+                  now(),
+                  tx.id,
+                );
+          },
+        );
+        return affected.length;
+      })
+      .immediate();
+  }
+  applyRuleOptimization(
+    revision: string,
+    groupIds: string[],
+    actor: Actor = 'user',
+  ): { removed: number; groups: number } {
+    invariant(actor === 'user', 'Only you can optimize reusable rules.', 403);
+    invariant(
+      groupIds.length > 0 && new Set(groupIds).size === groupIds.length,
+      'Select at least one distinct cleanup group.',
+    );
+    return this.db
+      .transaction(() => {
+        const preview = this.previewRuleOptimization();
+        invariant(
+          preview.revision === revision,
+          'Rules or unfinished proposals changed after this preview. Refresh the preview before applying cleanup.',
+          409,
+        );
+        const groups = preview.groups.filter((group) => groupIds.includes(group.id));
+        invariant(
+          groups.length === groupIds.length,
+          'Cleanup selection no longer exists. Refresh the preview.',
+          409,
+        );
+        for (const group of groups) this.validateRule(group.definition);
+        const ids = new Set(groups.flatMap((group) => group.rules.map((rule) => rule.id)));
+        const affected = this.transactions().filter(
+          (tx) => tx.state !== 'finalized' && tx.proposal?.ruleId && ids.has(tx.proposal.ruleId),
+        );
+        this.batch(
+          actor,
+          'Optimize ' + groups.length + ' rule group' + (groups.length === 1 ? '' : 's'),
+          [
+            ...[...ids].map((id) => ({ table: 'rules' as const, id })),
+            ...affected.map((tx) => ({ table: 'transactions' as const, id: tx.id })),
+          ],
+          (batchId) => {
+            const version = this.nextRuleVersion();
+            for (const group of groups) {
+              this.db
+                .prepare('UPDATE rules SET title=?,definition=?,version=?,active=1 WHERE id=?')
+                .run(group.title, JSON.stringify(group.definition), version, group.keepRuleId);
+              for (const rule of group.rules.filter((rule) => rule.id !== group.keepRuleId))
+                this.db
+                  .prepare('UPDATE rules SET active=0,version=? WHERE id=?')
+                  .run(version, rule.id);
+            }
+            for (const tx of affected) {
+              const group = groups.find((group) =>
+                group.rules.some((rule) => rule.id === tx.proposal!.ruleId),
+              )!;
+              const proposal = this.optimizedProposal(tx, group, version);
+              this.db
+                .prepare(
+                  'UPDATE transactions SET state=?,proposal=?,attention=?,version=version+1,batchId=?,updatedAt=? WHERE id=?',
+                )
+                .run(
+                  proposal ? tx.state : 'inbox',
+                  proposal ? JSON.stringify(proposal) : null,
+                  proposal
+                    ? tx.attention
+                    : 'This proposal used an older rule revision. Regenerate the split after rule cleanup.',
+                  batchId,
+                  now(),
+                  tx.id,
+                );
+            }
+          },
+        );
+        return {
+          removed: groups.reduce((count, group) => count + group.rules.length - 1, 0),
+          groups: groups.length,
         };
       })
       .immediate();
