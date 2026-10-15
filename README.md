@@ -51,6 +51,22 @@ Chat supports Markdown replies, growing input, Enter-to-send, live reply text an
 
 Conversation and context timestamps default to **America/Los_Angeles**. Set **NEXT_PUBLIC_TIME_ZONE** before starting if you use another timezone.
 
+## Import and export your data
+
+Use **Import / export** above any page, or **Import / export rules** on the rules page. Choose Transactions or Rules.
+
+- **Transactions JSON** preserves integer-cent amounts, dates, card accounts, saved splits, instructions, notes with timestamps, source rows, and refund links. Export all records or filter by dates and state. Related purchases and finalized refund history accompany a selection to preserve links and cumulative rounding.
+- **Transactions CSV** is a spreadsheet copy with human-readable amounts and allocations. Text that could be interpreted as a spreadsheet formula is escaped. Use JSON for importing back into this app; bank CSVs continue through **Import statements**.
+- **Rules JSON** includes active rules and optionally pending proposals, with merchant alternatives, card/date/category scopes, exact/percentage allocations, and participant details. Deleted and rejected rules are excluded.
+
+JSON files use the versioned `splitwise-ai` format, version 1, USD. Referenced people are included and matched by their unique @handle; new people and relationships are visible in the preview. Existing names and relationships are never overwritten. Review and acknowledge these matches before importing.
+
+Every import has a preview. Duplicate transactions are matched by source ID or occurrence counts of normalized financial details, across card accounts. Identical first-import purchases remain distinct. Rules use normalized definitions after participant mapping, including duplicates within the same file. Proposed skips show their existing match, require explicit acknowledgement, and can be kept as distinct records. Existing transactions and rules are never overwritten. A workspace change invalidates the preview; **Refresh preview** recalculates matches. Confirmation is atomic and cannot apply the same preview twice. Invalid JSON, unsupported versions/currency, malformed records, unresolved references, and ID collisions are rejected explicitly before anything is imported.
+
+Imported transactions with saved splits enter **Ready for review**; those without splits enter **Inbox**. Previously finalized records need approval again. Linked refunds retain their links and saved allocations in Inbox so the original purchase and refund order can be reviewed first. Imported rule definitions become **proposals**, with a single Undo batch for the imported proposals. They require normal approval before activation. Imports alone never change balances.
+
+These exports contain transactions or rules and the people they reference. They exclude repayments, chat history, jobs, approval history, and inactive rule history. Use the database backup/restore commands below for a complete workspace copy. JSON uploads are limited to 10 MB, 50,000 transactions or 5,000 rules per file. Large exports can be split by date.
+
 ## Rules, context, and cleanup
 
 Keep allocation **rules** separate from descriptive **context**. A rule says what to do (for example, split DoorDash equally with a named person). Context says what something means (for example, that person is a roommate, or a purchase was for a hiking trip). Person relationships and saved transaction notes already live outside the rule definitions. General user-profile facts should have their own context records rather than being converted silently into allocation rules.
@@ -126,6 +142,9 @@ All routes start with **/api**. Mutation bodies are JSON except multipart previe
 | POST   | /transactions/review                 | Atomic approve/reject/reopen/correct with IDs and expected versions |
 | POST   | /rules/propose                       | New/edit rule proposal                                              |
 | POST   | /rules/review                        | User approval/rejection                                             |
+| GET    | /transfer/export                     | Download transactions JSON/CSV or rules JSON                        |
+| POST   | /transfer/preview                    | Multipart JSON file and transactions/rules kind                     |
+| POST   | /transfer/confirm                    | Preview ID, skip/person acknowledgements, retained duplicate rows   |
 | POST   | /rules/delete                        | Version-checked deletion with persistent Undo                       |
 | GET    | /rules/optimize/preview              | Local duplicate/merge preview and revision                          |
 | POST   | /rules/optimize/apply                | Apply selected cleanup groups atomically with Undo                  |

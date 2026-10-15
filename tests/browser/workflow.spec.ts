@@ -1,5 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { resolve } from 'node:path';
+import { readFile } from 'node:fs/promises';
+import type { TransferBundle } from '../../src/lib/data-transfer';
 import type { Snapshot } from '../../src/lib/types';
 test('upload, duplicate preview, rule review, bulk finalize, repayment, date filter, correction and undo', async ({
   page,
@@ -408,5 +410,193 @@ test('preview rule cleanup, merge merchant alternatives, delete and undo from th
   await page.getByRole('button', { name: 'Undo', exact: true }).click();
   state = (await (await request.get('/api/state')).json()) as Snapshot;
   expect(state.rules.filter((rule) => rule.active && cohortIds.includes(rule.id))).toHaveLength(3);
+  expect(errors).toEqual([]);
+});
+
+test('download transactions and rules, preview duplicate skips, and import saved splits and rule proposals', async ({
+  page,
+  request,
+}) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+
+  const personResponse = await request.post('/api/people', {
+    data: { name: 'Transfer Alex', handle: 'transfer_alex', relation: 'Friend' },
+  });
+  expect(personResponse.ok()).toBe(true);
+  const person = await personResponse.json();
+  const importResponse = await request.post('/api/imports/preview', {
+    multipart: {
+      accountId: 'amex',
+      file: {
+        name: 'synthetic-transfer.csv',
+        mimeType: 'text/csv',
+        buffer: Buffer.from('Date,Description,Amount\n01/10/2026,TRANSFER SEED MEAL,11.51'),
+      },
+    },
+  });
+  const importPreview = await importResponse.json();
+  const confirmation = await request.post('/api/imports/confirm', {
+    data: { id: importPreview.id, acknowledgeSkips: true, keepRows: [], skipInvalid: false },
+  });
+  expect(confirmation.ok()).toBe(true);
+  const imported = await confirmation.json();
+  expect(
+    (
+      await request.post('/api/transactions/proposal', {
+        data: {
+          id: imported.ids[0],
+          version: 1,
+          category: 'Food & Drink',
+          mode: 'equal',
+          participants: ['self', person.id],
+        },
+      })
+    ).ok(),
+  ).toBe(true);
+  const seedRuleResponse = await request.post('/api/rules/propose', {
+    data: {
+      title: 'Transfer seed rule',
+      definition: {
+        merchant: 'TRANSFER SEED RULE',
+        outputCategory: 'Food & Drink',
+        split: { mode: 'equal', participants: ['self', person.id] },
+      },
+    },
+  });
+  const seedRule = await seedRuleResponse.json();
+  expect(
+    (await request.post('/api/rules/review', { data: { id: seedRule.id, approve: true } })).ok(),
+  ).toBe(true);
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Import / export', exact: true }).click();
+  let dialog = page.getByRole('dialog');
+  await expect(
+    dialog.getByRole('heading', { name: 'Export transactions', exact: true }),
+  ).toBeVisible();
+  const downloadEvent = page.waitForEvent('download');
+  await dialog.getByRole('button', { name: 'Download JSON', exact: true }).click();
+  const download = await downloadEvent;
+  const bundle = JSON.parse(await readFile((await download.path())!, 'utf8')) as Extract<
+    TransferBundle,
+    { kind: 'transactions' }
+  >;
+  expect(bundle.format).toBe('splitwise-ai');
+  expect(bundle.transactions.length).toBeGreaterThan(0);
+  const csvDownload = page.waitForEvent('download');
+  await dialog.getByLabel('Export format').selectOption('csv');
+  await dialog.getByRole('button', { name: 'Download CSV', exact: true }).click();
+  expect((await csvDownload).suggestedFilename()).toMatch(/\.csv$/);
+
+  await dialog.getByLabel('Splitwise AI JSON file').setInputFiles({
+    name: 'transactions.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(bundle)),
+  });
+  await dialog.getByRole('button', { name: 'Preview transactions import', exact: true }).click();
+  await expect(
+    dialog.getByRole('heading', { name: 'Review your import', exact: true }),
+  ).toBeVisible();
+  await expect(
+    dialog.getByRole('button', { name: 'Import 0 transactions', exact: true }),
+  ).toBeDisabled();
+  await dialog.getByRole('checkbox', { name: /I reviewed the .*duplicate/ }).check();
+  if (bundle.people.length > 1)
+    await dialog.getByRole('checkbox', { name: /I reviewed these person matches/ }).check();
+  await dialog.getByRole('button', { name: 'Import 0 transactions', exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+
+  const before = (await (await request.get('/api/state')).json()) as Snapshot;
+  const saved = bundle.transactions.find((tx) => tx.proposal && !tx.proposal.refundOf)!;
+  expect(saved).toBeTruthy();
+  bundle.transactions = [
+    {
+      ...saved,
+      id: 'transfer-browser-expense',
+      description: 'TRANSFER BROWSER LUNCH',
+      instruction: 'A synthetic imported lunch.',
+      notes: [
+        {
+          id: 'transfer-note',
+          text: 'Imported hiking trip context.',
+          source: 'instruction',
+          createdAt: '2026-01-10T12:00:00.000Z',
+        },
+      ],
+    },
+  ];
+  await page.getByRole('button', { name: 'Import / export', exact: true }).click();
+  dialog = page.getByRole('dialog');
+  await dialog.getByLabel('Splitwise AI JSON file').setInputFiles({
+    name: 'new-transaction.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(bundle)),
+  });
+  await dialog.getByRole('button', { name: 'Preview transactions import', exact: true }).click();
+  await expect(dialog.getByText('TRANSFER BROWSER LUNCH', { exact: true })).toBeVisible();
+  if (bundle.people.length > 1)
+    await dialog.getByRole('checkbox', { name: /I reviewed these person matches/ }).check();
+  await dialog.getByRole('button', { name: 'Import 1 transaction', exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  let state = (await (await request.get('/api/state')).json()) as Snapshot;
+  expect(state.transactions.find((t) => t.id === 'transfer-browser-expense')).toMatchObject({
+    state: 'ready',
+    notes: [{ text: 'Imported hiking trip context.' }],
+  });
+  expect(state.dashboard.totalOutstandingCents).toBe(before.dashboard.totalOutstandingCents);
+
+  await page.getByRole('button', { name: 'Rules & context', exact: false }).click();
+  await page.getByRole('button', { name: 'Import / export rules', exact: true }).click();
+  dialog = page.getByRole('dialog');
+  await expect(dialog.getByRole('tab', { name: 'Rules', exact: true })).toHaveAttribute(
+    'aria-selected',
+    'true',
+  );
+  const rulesEvent = page.waitForEvent('download');
+  await dialog.getByRole('button', { name: 'Download rules JSON', exact: true }).click();
+  const rulesDownload = await rulesEvent;
+  const rules = JSON.parse(await readFile((await rulesDownload.path())!, 'utf8')) as Extract<
+    TransferBundle,
+    { kind: 'rules' }
+  >;
+  expect(rules.rules.length).toBeGreaterThan(0);
+  rules.rules = [
+    {
+      ...rules.rules[0],
+      id: 'transfer-browser-rule',
+      title: 'Imported browser merchant rule',
+      definition: {
+        ...rules.rules[0].definition,
+        merchant: 'TRANSFER RULE MERCHANT',
+        merchantAliases: ['TRANSFER ALT MERCHANT'],
+      },
+    },
+  ];
+  const activeBefore = state.rules.filter((r) => r.active);
+  await dialog.getByLabel('Splitwise AI JSON file').setInputFiles({
+    name: 'rules.json',
+    mimeType: 'application/json',
+    buffer: Buffer.from(JSON.stringify(rules)),
+  });
+  await dialog.getByRole('button', { name: 'Preview rules import', exact: true }).click();
+  await expect(dialog.getByText('Imported browser merchant rule', { exact: true })).toBeVisible();
+  if (rules.people.length > 1)
+    await dialog.getByRole('checkbox', { name: /I reviewed these person matches/ }).check();
+  await dialog.getByRole('button', { name: 'Import 1 rule proposal', exact: true }).click();
+  await expect(dialog).not.toBeVisible();
+  state = (await (await request.get('/api/state')).json()) as Snapshot;
+  expect(state.rules.filter((r) => r.active)).toEqual(activeBefore);
+  expect(state.ruleChanges.find((r) => r.title === 'Imported browser merchant rule')).toMatchObject(
+    { status: 'proposed', definition: { merchantAliases: ['TRANSFER ALT MERCHANT'] } },
+  );
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole('button', { name: 'Import / export', exact: true }).click();
+  dialog = page.getByRole('dialog');
+  await dialog.getByRole('tab', { name: 'Transactions', exact: true }).click();
+  await expect(
+    dialog.getByRole('heading', { name: 'Export transactions', exact: true }),
+  ).toBeVisible();
+  expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  await dialog.getByRole('button', { name: 'Close', exact: true }).click();
   expect(errors).toEqual([]);
 });

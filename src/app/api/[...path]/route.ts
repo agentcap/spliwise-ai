@@ -2,6 +2,7 @@ import { getDb } from '@/db';
 import { Store } from '@/lib/store';
 import { AppError, invariant } from '@/lib/errors';
 import { z } from 'zod';
+import { DataTransfer, transactionCsv } from '@/lib/data-transfer';
 import { splitAmount } from '@/lib/money';
 import type { Proposal, RuleDefinition } from '@/lib/types';
 export const runtime = 'nodejs';
@@ -29,6 +30,46 @@ async function handle(req: Request, context: Context): Promise<Response> {
     const service = store();
     if (req.method === 'GET') {
       const url = new URL(req.url);
+      if (key === 'transfer/export') {
+        const kind = z.enum(['transactions', 'rules']).parse(url.searchParams.get('kind'));
+        const format = z.enum(['json', 'csv']).parse(url.searchParams.get('format') || 'json');
+        invariant(kind === 'transactions' || format === 'json', 'Rules are exported as JSON.');
+        const bundle = new DataTransfer(service).export(kind, {
+          from: url.searchParams.get('from') || undefined,
+          to: url.searchParams.get('to') || undefined,
+          state: url.searchParams.get('state') || undefined,
+          includePending: url.searchParams.get('includePending') !== 'false',
+        });
+        const content = format === 'csv' ? transactionCsv(bundle) : JSON.stringify(bundle, null, 2);
+        if (format === 'json') {
+          invariant(
+            Buffer.byteLength(content) <= 10_000_000,
+            'This export exceeds the 10 MB import limit. Select a shorter date range.',
+          );
+          invariant(
+            bundle.kind === 'transactions'
+              ? bundle.transactions.length <= 50000
+              : bundle.rules.length <= 5000,
+            'This export exceeds the record limit. Select a smaller range.',
+          );
+        }
+        return new Response(content, {
+          headers: {
+            'Content-Type':
+              format === 'csv' ? 'text/csv; charset=utf-8' : 'application/json; charset=utf-8',
+            'Content-Disposition':
+              'attachment; filename="splitwise-ai-' +
+              kind +
+              '-' +
+              new Date().toISOString().slice(0, 10) +
+              '.' +
+              format +
+              '"',
+            'Cache-Control': 'no-store',
+            'X-Content-Type-Options': 'nosniff',
+          },
+        });
+      }
       if (key === 'rules/optimize/preview')
         return Response.json(service.previewRuleOptimization(), {
           headers: { 'Cache-Control': 'no-store' },
@@ -95,6 +136,16 @@ async function handle(req: Request, context: Context): Promise<Response> {
       }
       throw new AppError('Not found.', 404);
     }
+    if (key === 'transfer/preview') {
+      const form = await req.formData();
+      const file = form.get('file');
+      invariant(
+        file instanceof File && file.size <= 10_000_000,
+        'Choose a JSON file smaller than 10 MB.',
+      );
+      const kind = z.enum(['transactions', 'rules']).parse(form.get('kind'));
+      return Response.json(new DataTransfer(service).preview(kind, file.name, await file.text()));
+    }
     if (key === 'imports/preview') {
       const form = await req.formData();
       const file = form.get('file');
@@ -108,6 +159,24 @@ async function handle(req: Request, context: Context): Promise<Response> {
     }
     invariant(Number(req.headers.get('content-length') || 0) <= 2_000_000, 'Request is too large.');
     const body = await req.json();
+    if (key === 'transfer/confirm') {
+      const a = z
+        .object({
+          id: z.string(),
+          acknowledgeSkips: z.boolean(),
+          acknowledgePeople: z.boolean(),
+          keepRows: z.array(z.number().int().positive()).max(50000),
+        })
+        .parse(body);
+      return Response.json(
+        new DataTransfer(service).confirm(
+          a.id,
+          a.acknowledgeSkips,
+          a.keepRows,
+          a.acknowledgePeople,
+        ),
+      );
+    }
     if (key === 'imports/confirm') {
       const a = z
         .object({

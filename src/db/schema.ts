@@ -135,3 +135,14 @@ export const messages = sqliteTable('messages', {
   transactionIds: text().notNull().default('[]'),
   createdAt: text().notNull(),
 });
+
+export const dataTransfers = sqliteTable('data_transfers', {
+  id: text().primaryKey(),
+  kind: text().notNull(),
+  fileName: text().notNull(),
+  payload: text().notNull(),
+  preview: text().notNull(),
+  status: text().notNull().default('draft'),
+  createdAt: text().notNull(),
+  summary: text().notNull().default(''),
+});

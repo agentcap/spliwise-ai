@@ -2,6 +2,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import {
   ArrowDownLeft,
+  ArrowDownUp,
   ArrowRight,
   ArrowUpRight,
   Check,
@@ -33,6 +34,7 @@ import QuickInstruction from './quick-instruction';
 import TransactionContext from './transaction-context';
 import ChatPanel from './chat-panel';
 import { DeleteRuleDialog, OptimizeRulesDialog } from './rule-management';
+import DataTransferDialog from './data-transfer-dialog';
 import ThemeToggle from './theme-toggle';
 import { api, Modal, ruleDescription, merchantLabel, ActionErrorContext } from './ui';
 import { ImportDialog, PersonDialog, RepaymentDialog, SplitDialog, RuleDialog } from './dialogs';
@@ -63,7 +65,8 @@ export default function Workspace() {
     [detailTxId, setDetailTxId] = useState<string | null>(null),
     [ruleEditor, setRuleEditor] = useState<Rule | 'new' | null>(null),
     [deletingRule, setDeletingRule] = useState<Rule | null>(null),
-    [optimizingRules, setOptimizingRules] = useState(false);
+    [optimizingRules, setOptimizingRules] = useState(false),
+    [transferKind, setTransferKind] = useState<'transactions' | 'rules' | null>(null);
   const fetchData = useCallback(async () => {
     const q = new URLSearchParams();
     if (from) q.set('from', from);
@@ -566,10 +569,18 @@ export default function Workspace() {
                             : 'Accepted splits that count toward your balances.'}
                 </p>
               </div>
-              <button className="primary" onClick={() => setImportOpen(true)}>
-                <FileUp size={17} />
-                Import statements
-              </button>
+              <div className="rule-page-actions">
+                <button
+                  className="quiet-button"
+                  onClick={() => setTransferKind(view === 'rules' ? 'rules' : 'transactions')}
+                >
+                  <ArrowDownUp size={16} /> Import / export
+                </button>
+                <button className="primary" onClick={() => setImportOpen(true)}>
+                  <FileUp size={17} />
+                  Import statements
+                </button>
+              </div>
             </div>
             <div className="date-strip">
               <CalendarDays size={16} />
@@ -1173,6 +1184,9 @@ export default function Workspace() {
                     </p>
                   </div>
                   <div className="rule-page-actions">
+                    <button className="quiet-button" onClick={() => setTransferKind('rules')}>
+                      <ArrowDownUp size={15} /> Import / export rules
+                    </button>
                     <button className="quiet-button" onClick={() => setOptimizingRules(true)}>
                       <Sparkles size={15} /> Optimize rules
                     </button>
@@ -1594,6 +1608,21 @@ export default function Workspace() {
                 }, 'Instruction saved. Generate revised splits when ready.')
               )
                 setEditTx(null);
+            }}
+          />
+        )}
+        {transferKind && (
+          <DataTransferDialog
+            initialKind={transferKind}
+            data={data}
+            from={from}
+            to={to}
+            onClose={() => setTransferKind(null)}
+            onImported={async (kind, summary) => {
+              await fetchData();
+              setTransferKind(null);
+              setView(kind === 'rules' ? 'rules' : 'review');
+              setNotice({ text: summary });
             }}
           />
         )}
