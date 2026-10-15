@@ -239,7 +239,7 @@ export async function askAgent(
   ];
   const agent = new Agent({
     name: 'Splitwise AI',
-    model: process.env.OPENAI_MODEL || 'gpt-6.1-sol',
+    model: process.env.OPENAI_MODEL || 'gpt-6-luna',
     tools,
     instructions: [
       'You help one user allocate credit-card expenses. All amounts are USD integer cents. Purchases positive, refunds negative.',

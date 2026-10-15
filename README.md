@@ -29,7 +29,7 @@ For a production build and startup:
 
 ### Enable AI
 
-A blank, ignored **.env.local** is prepared. Set **OPENAI_API_KEY** there, then restart. **OPENAI_MODEL** defaults to **gpt-6.1-sol**. Do not put the key in browser code or Git. On a fresh checkout:
+A blank, ignored **.env.local** is prepared. Set **OPENAI_API_KEY** there, then restart. **OPENAI_MODEL** defaults to **gpt-6-luna**. Do not put the key in browser code or Git. On a fresh checkout:
 
 ```sh
 cp -n .env.example .env.local
