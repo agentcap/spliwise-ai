@@ -30,6 +30,7 @@ import {
 import { money } from '@/lib/money';
 import type { Snapshot, Transaction, Rule, ImportPreview } from '@/lib/types';
 import MentionInput from './mention-input';
+import ThemeToggle from './theme-toggle';
 import { api, Modal, ruleDescription, ActionErrorContext } from './ui';
 import { ImportDialog, PersonDialog, RepaymentDialog, SplitDialog, RuleDialog } from './dialogs';
 type View = 'overview' | 'review' | 'finalized' | 'people' | 'rules' | 'imports';
@@ -469,6 +470,7 @@ export default function Workspace() {
               <b>{title}</b>
             </div>
             <div className="topbar-actions">
+              <ThemeToggle />
               <button
                 className="quiet-button"
                 onClick={undo}

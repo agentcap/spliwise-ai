@@ -37,6 +37,8 @@ cp -n .env.example .env.local
 
 Without a key, imports, approved rules, manual splits, review, repayments, and reporting work. Unresolved expenses stay in Inbox. **AGENT_MODE=mock** is exclusively for automated tests with synthetic data.
 
+The app starts in **Dracula Classic** dark mode using the [official palette](https://draculatheme.com/spec). The top-bar theme switch changes between Dracula and the original light theme; your browser remembers the choice across reloads.
+
 ## Workflow
 
 1. **Add people.** Choose a unique @handle and an optional relationship. Mention autocomplete supports arrow keys and Enter. Mentions resolve to stable person IDs.

@@ -1,0 +1,453 @@
+/* Dracula Classic: https://draculatheme.com/spec */
+:root {
+  color-scheme: light;
+}
+
+html[data-theme='dark'] {
+  color-scheme: dark;
+  --dracula-background: #282a36;
+  --dracula-current-line: #6272a4;
+  --dracula-selection: #44475a;
+  --dracula-foreground: #f8f8f2;
+  --dracula-red: #ff5555;
+  --dracula-orange: #ffb86c;
+  --dracula-yellow: #f1fa8c;
+  --dracula-green: #50fa7b;
+  --dracula-cyan: #8be9fd;
+  --dracula-purple: #bd93f9;
+  --dracula-pink: #ff79c6;
+  --dracula-background-light: #343746;
+  --dracula-background-dark: #21222c;
+  --dracula-background-darker: #191a21;
+  --bg: var(--dracula-background);
+  --paper: var(--dracula-background-light);
+  --ink: var(--dracula-foreground);
+  /* Lift small secondary labels above Dracula's decorative comment color for readability. */
+  --muted: color-mix(in srgb, var(--ink) 72%, var(--bg));
+  --line: var(--dracula-selection);
+  --green: var(--dracula-purple);
+  --mint: var(--dracula-selection);
+  --sidebar: var(--dracula-background-dark);
+  --shadow: none;
+  --surface-subtle: var(--dracula-background);
+  --surface-soft: var(--dracula-selection);
+  --surface-accent: var(--dracula-selection);
+  --text-secondary: var(--dracula-foreground);
+  --text-tertiary: var(--muted);
+  --accent-ink: var(--dracula-purple);
+  --warning-bg: color-mix(in srgb, var(--dracula-orange) 10%, var(--bg));
+  --warning-line: var(--dracula-orange);
+  --warning-ink: var(--dracula-yellow);
+  --error-bg: color-mix(in srgb, var(--dracula-red) 10%, var(--bg));
+  --error-line: var(--dracula-red);
+  --error-ink: var(--dracula-red);
+  scrollbar-color: var(--dracula-current-line) var(--bg);
+}
+
+html[data-theme='dark'] :is(input, select, textarea) {
+  background: var(--surface-subtle);
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+html[data-theme='dark'] :is(input, textarea)::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
+html[data-theme='dark'] :is(input, select, textarea):focus {
+  outline-color: var(--dracula-purple);
+}
+
+html[data-theme='dark'] :is(.topbar, .chat-compose, th, .date-strip input) {
+  background: var(--surface-subtle);
+  border-color: var(--line);
+}
+
+html[data-theme='dark']
+  :is(
+    .transaction-card,
+    .rule-card,
+    .chat-panel,
+    .mention-options,
+    .modal,
+    .modal-head,
+    .white-button,
+    .working-indicator,
+    .search-input,
+    .tab-switch button.active
+  ) {
+  background: var(--paper);
+  border-color: var(--line);
+  color: var(--ink);
+}
+
+html[data-theme='dark'] .primary {
+  background: var(--dracula-purple);
+  border-color: var(--dracula-purple);
+  color: var(--dracula-background);
+}
+
+html[data-theme='dark'] .topbar .quiet-button {
+  color: var(--text-secondary);
+}
+
+html[data-theme='dark']
+  :is(
+    .breadcrumbs,
+    .date-strip,
+    .eyebrow,
+    .stat-card p,
+    .review-toolbar,
+    .chart-empty p,
+    .bar-column,
+    .category-row span,
+    .footnote,
+    .empty-state,
+    .empty-state p,
+    .column-heading small,
+    .explanation,
+    .batch-marker,
+    .group-details summary,
+    .person-card-footer,
+    .rule-card p,
+    .modal-head p,
+    .form > label,
+    .form-grid > label,
+    .participant-fields legend,
+    .amount-input,
+    .tab-switch button,
+    .steps,
+    .import-counts span,
+    .import-success p,
+    .chat-welcome,
+    .chat-welcome p,
+    .chat-compose > div:last-child,
+    td
+  ) {
+  color: var(--text-tertiary);
+}
+
+html[data-theme='dark']
+  :is(
+    .breadcrumbs b,
+    .breadcrumbs span,
+    .section-title p,
+    .date-strip svg,
+    .chart-empty,
+    td b,
+    td strong,
+    .empty-state h3
+  ) {
+  color: var(--text-secondary);
+}
+
+html[data-theme='dark']
+  :is(
+    .pill,
+    .all-time,
+    .stat-icon,
+    .merchant-icon,
+    .empty-icon,
+    .column-heading b,
+    .split-preview > span,
+    .split-preview i,
+    .tab-switch,
+    .tip,
+    .import-ranges,
+    .rule-check,
+    .chat-message,
+    .avatar
+  ) {
+  background: var(--surface-soft);
+  border-color: var(--line);
+  color: var(--text-secondary);
+}
+
+html[data-theme='dark']
+  :is(
+    .topbar .avatar,
+    .stat-icon,
+    .rule-check,
+    .split-preview i,
+    .merchant-icon.refund,
+    .chat-message.user,
+    .mention-options [aria-selected='true'],
+    .upload-icon,
+    .import-success > span
+  ) {
+  background: var(--surface-accent);
+  color: var(--accent-ink);
+}
+
+html[data-theme='dark'] :is(.upload-icon, .credit-text) {
+  color: var(--dracula-green) !important;
+}
+
+html[data-theme='dark'] .stat-icon.warm {
+  background: var(--surface-soft);
+  color: var(--dracula-orange);
+}
+
+html[data-theme='dark'] .review-column {
+  background: var(--surface-subtle);
+  border-color: var(--line);
+}
+
+html[data-theme='dark'] .review-column.ready {
+  background: var(--surface-subtle);
+}
+
+html[data-theme='dark']
+  :is(
+    .column-heading,
+    .card-actions,
+    .person-card-footer,
+    .group-row,
+    .modal-actions,
+    .repayment-row,
+    .chat-compose,
+    .rule-before,
+    td
+  ) {
+  border-color: var(--line);
+}
+
+html[data-theme='dark'] .batch-marker span {
+  background: var(--line);
+}
+
+html[data-theme='dark'] :is(.confidence, .confidence.medium) {
+  color: var(--warning-ink);
+}
+
+html[data-theme='dark'] .confidence.high {
+  color: var(--dracula-green);
+}
+
+html[data-theme='dark'] .confidence.low {
+  color: var(--error-ink);
+}
+
+html[data-theme='dark'] :is(.needs-input, .ai-setup, .pill.amber, .import-ack) {
+  background: var(--warning-bg);
+  border-color: var(--warning-line);
+  color: var(--warning-ink);
+}
+
+html[data-theme='dark'] :is(.rule-card.proposed, .duplicate-row) {
+  background: var(--warning-bg);
+  border-color: var(--warning-line);
+}
+
+html[data-theme='dark']
+  :is(.notice, .job-progress, .selection-bar, .allocation-preview, .approve-button) {
+  background: var(--surface-accent);
+  border-color: var(--line);
+  color: var(--accent-ink);
+}
+
+html[data-theme='dark'] :is(.notice.error, .invalid-row) {
+  background: var(--error-bg);
+  border-color: var(--error-line);
+  color: var(--error-ink);
+}
+
+html[data-theme='dark'] .error-text {
+  color: var(--error-ink) !important;
+}
+
+html[data-theme='dark'] .balance-hero {
+  background: var(--dracula-selection);
+  border-color: var(--dracula-current-line);
+}
+
+html[data-theme='dark'] .balance-hero h2 {
+  color: var(--dracula-green);
+}
+
+html[data-theme='dark'] :is(.hero-top, .hero-bottom, .balance-hero p) {
+  color: var(--dracula-foreground);
+}
+
+html[data-theme='dark'] .hero-divider {
+  background: var(--dracula-current-line);
+}
+
+html[data-theme='dark'] .round-icon {
+  background: var(--dracula-background);
+  color: var(--dracula-cyan);
+}
+
+html[data-theme='dark'] .balance-hero::after {
+  border-color: color-mix(in srgb, var(--dracula-purple) 30%, transparent);
+  box-shadow:
+    0 0 0 25px color-mix(in srgb, var(--dracula-purple) 10%, transparent),
+    0 0 0 50px color-mix(in srgb, var(--dracula-purple) 5%, transparent);
+}
+
+html[data-theme='dark'] .review-banner {
+  background: var(--dracula-background-light);
+  border-color: var(--line);
+}
+
+html[data-theme='dark'] .banner-icon {
+  background: var(--dracula-selection);
+  color: var(--dracula-purple);
+}
+
+html[data-theme='dark'] .review-banner h3 {
+  color: var(--dracula-foreground);
+}
+
+html[data-theme='dark'] .review-banner p {
+  color: var(--muted);
+}
+
+html[data-theme='dark'] :is(.upload-zone, .tip, .empty-state.compact) {
+  background: var(--surface-subtle);
+  border-color: var(--dracula-current-line);
+}
+
+html[data-theme='dark']
+  :is(
+    .upload-zone strong,
+    .upload-zone > span,
+    .import-ranges strong,
+    .import-counts strong,
+    .steps .active,
+    .steps .complete
+  ) {
+  color: var(--dracula-cyan);
+}
+
+html[data-theme='dark'] :is(.white-button, .card-actions .text-button, .tab-switch button.active) {
+  color: var(--green);
+}
+
+html[data-theme='dark'] .color-0 {
+  background: var(--surface-soft);
+  color: var(--dracula-purple);
+}
+html[data-theme='dark'] .color-1 {
+  background: var(--surface-soft);
+  color: var(--dracula-pink);
+}
+html[data-theme='dark'] .color-2 {
+  background: var(--surface-soft);
+  color: var(--dracula-cyan);
+}
+html[data-theme='dark'] .color-3 {
+  background: var(--surface-soft);
+  color: var(--dracula-orange);
+}
+html[data-theme='dark'] .dot.color-0 {
+  background: var(--dracula-purple);
+}
+html[data-theme='dark'] .dot.color-1 {
+  background: var(--dracula-pink);
+}
+html[data-theme='dark'] .dot.color-2 {
+  background: var(--dracula-cyan);
+}
+html[data-theme='dark'] .dot.color-3 {
+  background: var(--dracula-orange);
+}
+
+html[data-theme='dark'] .ghost-bars i {
+  background: var(--dracula-selection);
+}
+html[data-theme='dark'] .bar {
+  background: var(--dracula-purple);
+}
+html[data-theme='dark'] .bar.negative {
+  background: var(--dracula-orange);
+}
+html[data-theme='dark'] progress::-webkit-progress-bar {
+  background: var(--dracula-selection);
+}
+html[data-theme='dark'] progress::-webkit-progress-value {
+  background: var(--dracula-cyan);
+}
+html[data-theme='dark'] progress::-moz-progress-bar {
+  background: var(--dracula-cyan);
+}
+
+html[data-theme='dark'] .modal::backdrop {
+  background: #191a21bd;
+}
+
+html[data-theme='dark'] .working-indicator {
+  box-shadow: 0 4px 20px #191a2140;
+  color: var(--green);
+}
+
+html[data-theme='dark'] ::selection {
+  background: var(--dracula-selection);
+  color: var(--dracula-foreground);
+}
+
+html[data-theme='dark'] :is(button, a):focus-visible {
+  outline: 2px solid var(--dracula-purple);
+}
+
+html[data-theme='dark'] :is(.sidebar, .brand, .local-badge) {
+  color: var(--dracula-foreground);
+}
+
+html[data-theme='dark'] :is(.sidebar-caption, .local-badge small, .self-profile small) {
+  color: var(--muted);
+}
+
+html[data-theme='dark'] .sidebar nav button {
+  color: var(--muted);
+}
+
+html[data-theme='dark'] .sidebar nav button.active {
+  background: var(--dracula-selection);
+  color: var(--dracula-purple);
+}
+
+html[data-theme='dark'] :is(.brand b, .sidebar nav button b, .sidebar-import) {
+  background: var(--dracula-selection);
+  border-color: var(--dracula-current-line);
+  color: var(--dracula-purple);
+}
+
+html[data-theme='dark'] .brand-symbol {
+  color: var(--dracula-purple);
+}
+
+html[data-theme='dark'] :is(.local-badge > span, .hero-bottom i, .state-dot.ready) {
+  background: var(--dracula-green);
+}
+
+html[data-theme='dark'] :is(.eyebrow > span, .state-dot) {
+  background: var(--dracula-orange);
+}
+
+html[data-theme='dark'] .self-profile {
+  border-color: var(--line);
+}
+
+html[data-theme='dark'] :is(th, .initial-loading) {
+  color: var(--muted);
+}
+
+html[data-theme='dark'] .approve-button {
+  color: var(--dracula-green);
+}
+
+html[data-theme='dark'] .search-input input {
+  background: transparent;
+}
+
+html[data-theme='dark'] :is(.chat-panel, .modal, .mention-options, .transaction-card, .primary) {
+  box-shadow: none;
+}
+
+@media (max-width: 600px) {
+  .theme-toggle-label {
+    display: none;
+  }
+}
