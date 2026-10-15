@@ -1,0 +1,17 @@
+.git
+.agents
+.codex
+node_modules
+.next*
+.tools
+.env*
+data
+backups
+test-results
+playwright-report
+coverage
+*.log
+*.sqlite*
+*.db*
+*.csv
+!tests/fixtures/*.csv

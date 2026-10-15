@@ -16,3 +16,6 @@ coverage/
 next-env.d.ts
 tsconfig.tsbuildinfo
 .next-browser-tests/
+
+secrets/
+.restore-drills/

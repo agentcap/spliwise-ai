@@ -19,13 +19,15 @@ The runtime is already installed in this checkout. To run npm commands in a new 
 export PATH="$PWD/.tools/node/bin:$PATH"
 ```
 
-Use Ubuntu Node, rather than Windows Node, with this database. The app and SQLite file stay on the WSL filesystem. The server binds to loopback and checks host/origin. It has no authentication and is intended for local use.
+Use Ubuntu Node, rather than Windows Node, with this database. The app and SQLite file stay on the WSL filesystem. The server binds to loopback and checks host/origin. Local mode has no authentication and is restricted to loopback. **Production mode requires OIDC sign-in and isolates each invited user in a private SQLite database.** See [Production deployment](docs/production.md).
 
-For a production build and startup:
+For a compiled build that remains local-only:
 
 ```sh
-./start.sh --production
+APP_MODE=local ./start.sh --production
 ```
+
+For internet access, use the separate [production deployment guide](docs/production.md) and its HTTPS/container configuration. Production mode refuses to start without identity settings and requires explicit database migration.
 
 ### Enable AI
 
@@ -49,7 +51,7 @@ Reusable rule proposals appear as review cards directly below the assistant’s 
 
 Chat supports Markdown replies, growing input, Enter-to-send, live reply text and activity, queued requests, Stop/Retry, and links back to the relevant expense. It opens at the latest message and lets you read older messages without being pulled back down. Selected unfinished expenses scope a request; their full chat instructions are attached as context. For unselected requests, the agent can attach relevant exact quotes from your message to unfinished expenses. AI still cannot modify finalized expenses.
 
-Conversation and context timestamps default to **America/Los_Angeles**. Set **NEXT_PUBLIC_TIME_ZONE** before starting if you use another timezone.
+Open **Settings** in the top bar to choose your workspace timezone, manage card accounts, review AI consent and monthly usage, download a complete workspace, or sign out. Production users must enable AI processing explicitly before starting agent jobs. Conversation, context, import timestamps and repayment date defaults use the saved timezone.
 
 ## Context after a CSV import
 
@@ -137,32 +139,32 @@ The date filter shows **what remains unpaid from expenses in that range now**, i
 
 All routes start with **/api**. Mutation bodies are JSON except multipart preview. The browser is the user authority; agent tools call domain services with a fixed agent actor.
 
-| Method | Route                                | Purpose                                                             |
-| ------ | ------------------------------------ | ------------------------------------------------------------------- |
-| GET    | /state?from=YYYY-MM-DD&to=YYYY-MM-DD | Workspace and balances                                              |
-| GET    | /health                              | Local server health                                                 |
-| POST   | /imports/preview                     | Multipart file and accountId                                        |
-| GET    | /imports/:id                         | Retained row decisions and payment history                          |
-| POST   | /imports/finish                      | Save optional date-scoped context and atomically queue processing   |
-| POST   | /imports/confirm                     | Preview ID, skip acknowledgements, retained duplicate row numbers   |
-| POST   | /people                              | Name, unique handle, relationship                                   |
-| POST   | /transactions/instruct               | Save Inbox instruction/context and queue that expense atomically    |
-| POST   | /transactions/proposal               | Manual split/category, expected version, optional original purchase |
-| POST   | /transactions/review                 | Atomic approve/reject/reopen/correct with IDs and expected versions |
-| POST   | /rules/propose                       | New/edit rule proposal                                              |
-| POST   | /rules/review                        | User approval/rejection                                             |
-| GET    | /transfer/export                     | Download transactions JSON/CSV or rules JSON                        |
-| POST   | /transfer/preview                    | Multipart JSON file and transactions/rules kind                     |
-| POST   | /transfer/confirm                    | Preview ID, skip/person acknowledgements, retained duplicate rows   |
-| POST   | /rules/delete                        | Version-checked deletion with persistent Undo                       |
-| GET    | /rules/optimize/preview              | Local duplicate/merge preview and revision                          |
-| POST   | /rules/optimize/apply                | Apply selected cleanup groups atomically with Undo                  |
-| POST   | /repayments                          | Person, date, positive cents, received/returned, note               |
-| POST   | /undo                                | Undo latest completed batch                                         |
-| POST   | /jobs                                | Process selected/Inbox transactions or chat                         |
-| GET    | /jobs/:id/events                     | Stream progress                                                     |
-| POST   | /jobs/:id/cancel                     | Cancel unfinished work                                              |
-| POST   | /jobs/:id/retry                      | Resume failed/cancelled work                                        |
+| Method | Route                                | Purpose                                                                 |
+| ------ | ------------------------------------ | ----------------------------------------------------------------------- |
+| GET    | /state?from=YYYY-MM-DD&to=YYYY-MM-DD | Workspace and balances                                                  |
+| GET    | /health                              | Local server health                                                     |
+| POST   | /imports/preview                     | Multipart file and accountId                                            |
+| GET    | /imports/:id                         | Retained row decisions and payment history                              |
+| POST   | /imports/finish                      | Save optional date-scoped context and atomically queue processing       |
+| POST   | /imports/confirm                     | Preview ID, skip acknowledgements, retained duplicate row numbers       |
+| POST   | /people                              | Name, unique handle, relationship                                       |
+| POST   | /transactions/instruct               | Save Inbox instruction/context and queue that expense atomically        |
+| POST   | /transactions/proposal               | Manual split/category, expected version, optional original purchase     |
+| POST   | /transactions/review                 | Atomic approve/reject/reopen/correct with IDs and expected versions     |
+| POST   | /rules/propose                       | New/edit rule proposal                                                  |
+| POST   | /rules/review                        | User approval/rejection                                                 |
+| GET    | /transfer/export                     | Download transactions JSON/CSV or rules JSON                            |
+| POST   | /transfer/preview                    | Multipart JSON file and transactions/rules kind                         |
+| POST   | /transfer/confirm                    | Preview ID, skip/person acknowledgements, retained duplicate rows       |
+| POST   | /rules/delete                        | Version-checked deletion with persistent Undo                           |
+| GET    | /rules/optimize/preview              | Local duplicate/merge preview and revision                              |
+| POST   | /rules/optimize/apply                | Apply selected cleanup groups atomically with Undo                      |
+| POST   | /repayments                          | Person, date, cents, direction, note, stable requestId for retry safety |
+| POST   | /undo                                | Undo latest completed batch                                             |
+| POST   | /jobs                                | Process selected/Inbox transactions or chat                             |
+| GET    | /jobs/:id/events                     | Stream progress                                                         |
+| POST   | /jobs/:id/cancel                     | Cancel unfinished work                                                  |
+| POST   | /jobs/:id/retry                      | Resume failed/cancelled work                                            |
 
 Shared contracts live in **src/lib/types.ts**. State, version, batch ID, cent amounts, participant IDs, confidence, and proposal source are explicit. Stale writes conflict or leave changed transactions untouched; refresh and regenerate.
 
@@ -194,6 +196,10 @@ npm run build
 npm exec playwright install --with-deps chromium
 npm run test:browser
 npm run test:live
+npm run test:production          # Run after build; synthetic production sign-in gate
+npm run test:eval                # Synthetic mocked-agent regressions
+npm run test:eval -- --live      # Opt-in billable model evaluations
+npm run check:secrets
 npm run validate:samples -- /path/to/sample-directory
 ```
 

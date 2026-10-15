@@ -71,6 +71,7 @@ export function calculateDashboard(
         receivedCents,
         returnedCents,
         expenses,
+        unpaidExpenseCount: expenses.filter((e) => e.remainingCents > 0).length,
       };
     });
   const categories = new Map<string, number>(),

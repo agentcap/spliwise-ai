@@ -1,5 +1,5 @@
 'use client';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ArrowRight, Check, FileUp, LoaderCircle, Plus, ShieldCheck, Sparkles } from 'lucide-react';
 import { money, cents, splitAmount, linkedRefundShares } from '@/lib/money';
 import type {
@@ -15,14 +15,13 @@ import MentionInput from './mention-input';
 import ImportContextStep from './import-context-step';
 import { merchantPatterns } from '@/lib/rule-definition';
 import { api, Modal } from './ui';
-const today = () => {
-  const d = new Date();
-  return [
-    d.getFullYear(),
-    String(d.getMonth() + 1).padStart(2, '0'),
-    String(d.getDate()).padStart(2, '0'),
-  ].join('-');
-};
+const today = (timeZone?: string) =>
+  new Intl.DateTimeFormat('en-CA', {
+    timeZone: timeZone || Intl.DateTimeFormat().resolvedOptions().timeZone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
 export function PersonDialog({
   onClose,
   onSave,
@@ -98,8 +97,10 @@ export function RepaymentDialog({
   onClose: () => void;
   onSave: (body: unknown) => Promise<void>;
 }) {
+  const [requestId] = useState(() => crypto.randomUUID());
+  const [saving, setSaving] = useState(false);
   const [amount, setAmount] = useState(''),
-    [date, setDate] = useState(today()),
+    [date, setDate] = useState(today(data.workspace?.timezone)),
     [direction, setDirection] = useState('received'),
     [note, setNote] = useState(''),
     [error, setError] = useState('');
@@ -111,12 +112,23 @@ export function RepaymentDialog({
     >
       <form
         className="modal-body form"
-        onSubmit={(e) => {
+        onSubmit={async (e) => {
           e.preventDefault();
+          if (saving) return;
+          setSaving(true);
           try {
-            onSave({ personId, date, amountCents: cents(amount), direction, note });
+            await onSave({
+              personId,
+              date,
+              amountCents: cents(amount),
+              direction,
+              note,
+              requestId,
+            });
           } catch (e) {
             setError((e as Error).message);
+          } finally {
+            setSaving(false);
           }
         }}
       >
@@ -151,7 +163,7 @@ export function RepaymentDialog({
           <button type="button" className="quiet-button" onClick={onClose}>
             Cancel
           </button>
-          <button type="submit" className="primary">
+          <button type="submit" className="primary" disabled={saving}>
             Save repayment
           </button>
         </footer>
@@ -299,6 +311,30 @@ export function SplitDialog({
     [error, setError] = useState(''),
     [refundOf, setRefundOf] = useState(tx.proposal?.refundOf || ''),
     [tab, setTab] = useState<'manual' | 'instruction'>('manual');
+  const [purchaseSearch, setPurchaseSearch] = useState(''),
+    [purchasePage, setPurchasePage] = useState(0),
+    [purchases, setPurchases] = useState<Transaction[]>([]),
+    [purchaseTotal, setPurchaseTotal] = useState(0),
+    [quoting, setQuoting] = useState(false);
+  useEffect(() => {
+    if (tx.amountCents >= 0) return;
+    let active = true;
+    api<{ transactions: Transaction[]; pagination: { total: number } }>(
+      'transactions?' + new URLSearchParams({ search: purchaseSearch, page: String(purchasePage) }),
+    )
+      .then((result) => {
+        if (active) {
+          setPurchases(result.transactions);
+          setPurchaseTotal(result.pagination.total);
+        }
+      })
+      .catch((e) => {
+        if (active) setError(e.message);
+      });
+    return () => {
+      active = false;
+    };
+  }, [tx.id, tx.amountCents, purchaseSearch, purchasePage]);
   let preview = '';
   try {
     preview = splitAmount(tx.amountCents, specFor(mode, participants, values))
@@ -368,49 +404,76 @@ export function SplitDialog({
             {tx.amountCents < 0 && (
               <label>
                 Original purchase (optional)
+                <input
+                  aria-label="Search original purchases"
+                  placeholder="Search finalized purchases…"
+                  value={purchaseSearch}
+                  onChange={(e) => {
+                    setPurchaseSearch(e.target.value);
+                    setPurchasePage(0);
+                  }}
+                />
                 <select
                   value={refundOf}
-                  onChange={(e) => {
-                    setRefundOf(e.target.value);
-                    const original = data.transactions.find((t) => t.id === e.target.value);
-                    if (original?.proposal) {
-                      try {
-                        const shares = linkedRefundShares(
-                          original.proposal.splits,
-                          tx.amountCents,
-                          data.transactions
-                            .filter(
-                              (t) =>
-                                t.id !== tx.id &&
-                                t.state === 'finalized' &&
-                                t.proposal?.refundOf === original.id,
-                            )
-                            .map((t) => t.proposal!.splits),
-                        );
-                        setMode('exact');
-                        setParticipants(shares.map((s) => s.personId));
-                        setValues(
-                          Object.fromEntries(
-                            shares.map((s) => [s.personId, (s.amountCents / 100).toFixed(2)]),
-                          ),
-                        );
-                        setCategory(original.proposal.category);
-                      } catch (error) {
-                        setRefundOf('');
-                        setError((error as Error).message);
-                      }
+                  disabled={quoting}
+                  onChange={async (e) => {
+                    const id = e.target.value;
+                    setRefundOf(id);
+                    if (!id) return;
+                    setQuoting(true);
+                    setError('');
+                    try {
+                      const quote = await api<{
+                        splits: { personId: string; amountCents: number }[];
+                        category: string;
+                      }>('refunds/quote', { refundId: tx.id, originalId: id });
+                      setMode('exact');
+                      setParticipants(quote.splits.map((s) => s.personId));
+                      setValues(
+                        Object.fromEntries(
+                          quote.splits.map((s) => [s.personId, (s.amountCents / 100).toFixed(2)]),
+                        ),
+                      );
+                      setCategory(quote.category);
+                    } catch (e) {
+                      setRefundOf('');
+                      setError((e as Error).message);
+                    } finally {
+                      setQuoting(false);
                     }
                   }}
                 >
                   <option value="">Allocate this refund independently</option>
-                  {data.transactions
-                    .filter((t) => t.state === 'finalized' && t.amountCents > 0)
-                    .map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.date} · {t.description} · {money(t.amountCents)}
-                      </option>
-                    ))}
+                  {refundOf && !purchases.some((p) => p.id === refundOf) && (
+                    <option value={refundOf}>Selected purchase</option>
+                  )}
+                  {purchases.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.date} · {t.description} · {money(t.amountCents)}
+                    </option>
+                  ))}
                 </select>
+                <span className="pagination">
+                  <button
+                    type="button"
+                    className="text-button"
+                    disabled={!purchasePage}
+                    onClick={() => setPurchasePage(purchasePage - 1)}
+                  >
+                    Previous purchases
+                  </button>
+                  <small>
+                    Page {purchasePage + 1} · {purchaseTotal} purchases
+                  </small>
+                  <button
+                    type="button"
+                    className="text-button"
+                    disabled={(purchasePage + 1) * 50 >= purchaseTotal}
+                    onClick={() => setPurchasePage(purchasePage + 1)}
+                  >
+                    Next purchases
+                  </button>
+                </span>
               </label>
             )}
             <SplitFields

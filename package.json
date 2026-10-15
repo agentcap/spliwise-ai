@@ -19,7 +19,16 @@
     "db:migrate": "tsx scripts/migrate.ts",
     "backup": "node --env-file-if-exists=.env.local --import tsx scripts/backup.ts",
     "restore": "node --env-file-if-exists=.env.local --import tsx scripts/restore.ts",
-    "validate:samples": "tsx scripts/validate-samples.ts"
+    "validate:samples": "tsx scripts/validate-samples.ts",
+    "db:migrate:all": "node --env-file-if-exists=.env.local --import tsx scripts/migrate-all.ts",
+    "backup:all": "node --env-file-if-exists=.env.local --import tsx scripts/backup-all.ts",
+    "restore:all": "node --env-file-if-exists=.env.local --import tsx scripts/restore-all.ts",
+    "maintenance": "node --env-file-if-exists=.env.local --import tsx scripts/maintenance.ts",
+    "deletions": "node --env-file-if-exists=.env.local --import tsx scripts/deletions.ts",
+    "check:secrets": "node scripts/check-secrets.mjs",
+    "test:eval": "node --env-file-if-exists=.env.local --import tsx scripts/evaluate.ts",
+    "workspace:adopt": "node --env-file-if-exists=.env.local --import tsx scripts/adopt-workspace.ts",
+    "test:production": "node scripts/production-smoke.mjs"
   },
   "dependencies": {
     "@fontsource/dm-sans": "5.3.0",
@@ -30,10 +39,13 @@
     "drizzle-orm": "0.45.4",
     "lucide-react": "1.57.0",
     "next": "16.4.1",
+    "openai": "7.34.0",
+    "openid-client": "6.8.8",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "react-markdown": "10.1.0",
-    "zod": "4.6.7"
+    "zod": "4.6.7",
+    "tsx": "4.23.15"
   },
   "devDependencies": {
     "@playwright/test": "1.64.1",
@@ -43,7 +55,6 @@
     "@types/react-dom": "19.3.0",
     "drizzle-kit": "0.31.11",
     "prettier": "3.9.10",
-    "tsx": "4.23.15",
     "typescript": "7.0.2",
     "vitest": "5.0.4"
   },

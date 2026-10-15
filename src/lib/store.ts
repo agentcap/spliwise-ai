@@ -1,6 +1,8 @@
 import { randomUUID, createHash } from 'node:crypto';
 import type { Sqlite } from '../db';
 import { invariant, AppError } from './errors';
+import { config } from './config';
+import { queryLedger, type LedgerQuery } from './ledger-query';
 import { isoDate, linkedRefundShares, cents, splitAmount } from './money';
 import { parseStatement, normalizedDescription } from './importer';
 import { calculateDashboard } from './balances';
@@ -37,13 +39,57 @@ type Undo = {
   before: Raw | null;
 };
 const now = () => new Date().toISOString();
+const dashboards = new WeakMap<
+  Sqlite,
+  { key: string; value: ReturnType<typeof calculateDashboard> }
+>();
 export class Store {
-  constructor(public db: Sqlite) {}
+  constructor(
+    public db: Sqlite,
+    public workspaceId = 'local',
+  ) {}
   all<T>(sql: string, ...args: unknown[]): T[] {
     return this.db.prepare(sql).all(...args) as T[];
   }
   one<T>(sql: string, ...args: unknown[]): T | undefined {
     return this.db.prepare(sql).get(...args) as T | undefined;
+  }
+  settings(): { timezone: string; consentAt: string | null } {
+    return (
+      this.one('SELECT timezone,consentAt FROM workspace_settings WHERE id=?', 'main') || {
+        timezone: 'America/Los_Angeles',
+        consentAt: null,
+      }
+    );
+  }
+  updateSettings(timezone: string, consent: boolean) {
+    try {
+      new Intl.DateTimeFormat('en', { timeZone: timezone }).format();
+    } catch {
+      throw new AppError('Choose a valid IANA time zone.');
+    }
+    this.db
+      .prepare(
+        'INSERT INTO workspace_settings(id,timezone,consentAt) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET timezone=excluded.timezone,consentAt=excluded.consentAt',
+      )
+      .run('main', timezone, consent ? this.settings().consentAt || now() : null);
+    if (!consent)
+      this.db
+        .prepare(
+          "UPDATE jobs SET cancelRequested=1,status=CASE WHEN status='queued' THEN 'cancelled' ELSE status END WHERE status IN ('queued','running')",
+        )
+        .run();
+  }
+  addAccount(name: string, format: 'chase' | 'amex') {
+    invariant(
+      name.trim() && name.length <= 80 && ['chase', 'amex'].includes(format),
+      'Choose an account name and supported format.',
+    );
+    const id = randomUUID();
+    this.db
+      .prepare('INSERT INTO accounts(id,name,format) VALUES(?,?,?)')
+      .run(id, name.trim(), format);
+    return id;
   }
   people(): Person[] {
     return this.all('SELECT * FROM people ORDER BY isSelf DESC,name');
@@ -58,6 +104,15 @@ export class Store {
         }) as unknown as Transaction,
     );
   }
+  unfinishedTransactions(): Transaction[] {
+    return this.all<Raw>(
+      "SELECT * FROM transactions WHERE state!='finalized' ORDER BY updatedAt DESC,id",
+    ).map((r) => ({
+      ...r,
+      proposal: r.proposal ? JSON.parse(r.proposal as string) : null,
+      notes: JSON.parse(r.notes as string),
+    })) as unknown as Transaction[];
+  }
   transaction(id: string): Transaction {
     const r = this.one<Raw>('SELECT * FROM transactions WHERE id=?', id);
     invariant(r, 'Transaction not found.', 404);
@@ -67,10 +122,19 @@ export class Store {
       notes: JSON.parse((r.notes as string) || '[]'),
     } as unknown as Transaction;
   }
-  rules(): Rule[] {
-    return this.all<Raw>('SELECT * FROM rules').map(
-      (r) => ({ ...r, definition: JSON.parse(r.definition as string) }) as unknown as Rule,
-    );
+  rules(includeCounts = false): Rule[] {
+    const counts = includeCounts
+      ? new Map(
+          this.all<{ id: string; n: number }>(
+            "SELECT json_extract(proposal,'$.ruleId') id,COUNT(*) n FROM transactions WHERE state!='finalized' AND proposal IS NOT NULL GROUP BY id",
+          ).map((r) => [r.id, r.n]),
+        )
+      : undefined;
+    return this.all<Raw>('SELECT * FROM rules').map((r) => ({
+      ...r,
+      definition: JSON.parse(r.definition as string),
+      ...(counts ? { unfinishedCount: counts.get(String(r.id)) || 0 } : {}),
+    })) as unknown as Rule[];
   }
   ruleChanges(): RuleChange[] {
     // Job step keys and undo snapshots already retain the origin of each rule proposal.
@@ -85,7 +149,7 @@ export class Store {
         if (entry.table === 'rule_changes') origins.set(entry.id, match[1]);
       }
     }
-    const inbox = this.transactions().filter((tx) => tx.state === 'inbox');
+    const inbox = this.unfinishedTransactions().filter((tx) => tx.state === 'inbox');
     return this.all<Raw>('SELECT * FROM rule_changes').map((r) => {
       const definition = JSON.parse(r.definition as string) as RuleDefinition;
       const candidate: Rule = {
@@ -1073,7 +1137,8 @@ export class Store {
     direction: Repayment['direction'],
     note: string,
     actor: Actor = 'user',
-  ): void {
+    idempotencyKey?: string,
+  ): string {
     invariant(actor === 'user', 'Only you can record repayments.', 403);
     invariant(
       this.people().some((p) => p.id === personId && !p.isSelf),
@@ -1085,24 +1150,67 @@ export class Store {
       'Repayment must be a positive cent amount.',
     );
     invariant(direction === 'received' || direction === 'returned', 'Invalid direction.');
-    const id = randomUUID();
-    this.batch(actor, 'Record repayment', [{ table: 'repayments', id }], () => {
-      if (direction === 'returned')
-        invariant(
-          (this.snapshot().dashboard.people.find((p) => p.person.id === personId)?.creditCents ||
-            0) >= amountCents,
-          'Returned amount exceeds this person’s available credit.',
+    const key = idempotencyKey || randomUUID();
+    invariant(/^[A-Za-z0-9_-]{16,100}$/.test(key), 'Invalid repayment request key.');
+    const digest = createHash('sha256')
+      .update(JSON.stringify({ personId, date, amountCents, direction, note }))
+      .digest('hex');
+    return this.db
+      .transaction(() => {
+        const previous = this.one<{ digest: string; response: string }>(
+          'SELECT digest,response FROM receipts WHERE key=?',
+          'repayment:' + key,
         );
-      this.db
-        .prepare(
-          'INSERT INTO repayments(id,personId,date,amountCents,direction,note) VALUES (?,?,?,?,?,?)',
-        )
-        .run(id, personId, date, amountCents, direction, note.slice(0, 500));
-    });
+        if (previous) {
+          invariant(
+            previous.digest === digest,
+            'This request key was used for a different repayment.',
+            409,
+          );
+          return JSON.parse(previous.response).id as string;
+        }
+        const id = randomUUID();
+        this.batch(actor, 'Record repayment', [{ table: 'repayments', id }], () => {
+          if (direction === 'returned')
+            invariant(
+              (this.snapshot().dashboard.people.find((p) => p.person.id === personId)
+                ?.creditCents || 0) >= amountCents,
+              'Returned amount exceeds this person’s available credit.',
+            );
+          this.db
+            .prepare(
+              'INSERT INTO repayments(id,personId,date,amountCents,direction,note) VALUES (?,?,?,?,?,?)',
+            )
+            .run(id, personId, date, amountCents, direction, note.slice(0, 500));
+        });
+        this.db
+          .prepare('INSERT INTO receipts(key,digest,response,createdAt) VALUES(?,?,?,?)')
+          .run('repayment:' + key, digest, JSON.stringify({ id }), now());
+        return id;
+      })
+      .immediate();
   }
   enqueue(kind: AgentJob['kind'], payload: AgentJob['payload']): string {
     return this.db
       .transaction(() => {
+        const limits = config();
+        invariant(
+          !limits.production || kind !== 'chat' || this.settings().consentAt,
+          'Review Privacy & AI in Settings before using the assistant.',
+          403,
+        );
+        invariant(
+          (payload.ids?.length || 0) <= limits.maxJobTransactions,
+          'Select at most ' + limits.maxJobTransactions + ' transactions per processing job.',
+        );
+        const queued = this.one<{ count: number }>(
+          "SELECT COUNT(*) count FROM jobs WHERE status IN ('queued','running')",
+        )!.count;
+        invariant(
+          queued < limits.maxQueuedJobs,
+          'Finish or cancel a queued job before starting another.',
+          429,
+        );
         if (payload.ids) {
           invariant(
             new Set(payload.ids).size === payload.ids.length,
@@ -1196,15 +1304,53 @@ export class Store {
   }
   retryJob(id: string): void {
     const job = this.job(id);
+    const limits = config();
+    invariant(
+      !limits.production || job.kind !== 'chat' || this.settings().consentAt,
+      'Review Privacy & AI in Settings before using the assistant.',
+      403,
+    );
+    invariant(
+      (job.payload.ids?.length || 0) <= limits.maxJobTransactions,
+      'This job exceeds the current processing limit. Start a smaller selection.',
+    );
+    invariant(
+      this.one<{ n: number }>("SELECT COUNT(*) n FROM jobs WHERE status IN ('queued','running')")!
+        .n < limits.maxQueuedJobs,
+      'Finish or cancel a queued job before retrying.',
+      429,
+    );
     invariant(
       job.status === 'failed' || job.status === 'cancelled',
       'Only failed or cancelled jobs can be retried.',
     );
     this.db
       .prepare(
-        "UPDATE jobs SET status='queued',cancelRequested=0,error='',activity='',response='',leaseUntil=0,updatedAt=? WHERE id=?",
+        "UPDATE jobs SET status='queued',cancelRequested=0,error='',activity='',response='',leaseUntil=0,leaseToken=NULL,attempts=0,updatedAt=? WHERE id=?",
       )
       .run(now(), id);
+  }
+  quoteRefund(refundId: string, originalId: string) {
+    const refund = this.transaction(refundId),
+      original = this.transaction(originalId);
+    invariant(
+      refund.amountCents < 0 && refund.state !== 'finalized',
+      'Choose an unfinished refund.',
+    );
+    invariant(
+      original.state === 'finalized' && original.amountCents > 0 && original.proposal,
+      'Choose a finalized purchase.',
+    );
+    return {
+      splits: linkedRefundShares(
+        original.proposal.splits,
+        refund.amountCents,
+        this.transactions()
+          .filter((t) => t.state === 'finalized' && t.proposal?.refundOf === original.id)
+          .map((t) => t.proposal!.splits),
+      ),
+      category: original.proposal.category,
+    };
   }
   refundProposal(tx: Transaction): Proposal | undefined {
     if (tx.amountCents >= 0) return;
@@ -1251,23 +1397,77 @@ export class Store {
       refundOf: original.id,
     };
   }
-  snapshot(from?: string, to?: string): Snapshot {
+  dashboard(from?: string, to?: string) {
     if (from) isoDate(from);
     if (to) isoDate(to);
     invariant(!from || !to || from <= to, 'Start date must precede end date.');
-    const transactions = this.transactions(),
+    const key = [
+      from,
+      to,
+      this.one<{ revision: number }>("SELECT revision FROM ledger_revision WHERE id='main'")!
+        .revision,
+    ].join('|');
+    const cached = dashboards.get(this.db);
+    if (cached?.key === key) return cached.value;
+    const value = calculateDashboard(
+      this.transactions(),
+      this.people(),
+      this.all<Repayment>('SELECT * FROM repayments ORDER BY date DESC,id'),
+      from,
+      to,
+    );
+    dashboards.set(this.db, { key, value });
+    return value;
+  }
+  personLedger(personId: string, from?: string, to?: string, page = 0) {
+    invariant(Number.isInteger(page) && page >= 0, 'Invalid page.');
+    const person = this.dashboard(from, to).people.find((p) => p.person.id === personId);
+    invariant(person, 'Person not found.', 404);
+    const expenses = person.expenses.filter(
+      (e) => (!from || e.date >= from) && (!to || e.date <= to),
+    );
+    return {
+      expenses: expenses.slice(page * 50, (page + 1) * 50),
+      total: expenses.length,
+      page,
+      repayments: this.all<Repayment>(
+        'SELECT * FROM repayments WHERE personId=? ORDER BY date DESC,id LIMIT 50 OFFSET ?',
+        personId,
+        page * 50,
+      ),
+      repaymentCount: this.one<{ n: number }>(
+        'SELECT COUNT(*) n FROM repayments WHERE personId=?',
+        personId,
+      )!.n,
+    };
+  }
+  snapshot(from?: string, to?: string, query?: LedgerQuery): Snapshot {
+    if (from) isoDate(from);
+    if (to) isoDate(to);
+    invariant(!from || !to || from <= to, 'Start date must precede end date.');
+    const ledger = query ? queryLedger(this.db, { ...query, from, to }) : undefined;
+    if (ledger && query?.view === 'imports') {
+      const count = this.one<{ n: number }>(
+        "SELECT COUNT(*) n FROM imports WHERE status='confirmed'",
+      )!.n;
+      Object.assign(ledger.pagination, { total: count, imports: count });
+    }
+    const transactions = ledger?.transactions || this.transactions(),
       people = this.people(),
       repayments = this.all<Repayment>('SELECT * FROM repayments ORDER BY date DESC,id');
     return {
       people,
+      pagination: ledger?.pagination,
+      workspace: { production: config().production, ...this.settings() },
       accounts: this.all<Account>('SELECT * FROM accounts'),
       categories: this.all<Category>('SELECT * FROM categories ORDER BY name'),
       transactions,
-      rules: this.rules(),
+      rules: this.rules(true),
       ruleChanges: this.ruleChanges(),
-      repayments,
+      repayments: query ? repayments.slice(0, 100) : repayments,
       batches: this.all<ActionBatch>(
-        'SELECT id,sequence,label,actor,createdAt,undoneAt FROM action_batches ORDER BY sequence DESC',
+        'SELECT id,sequence,label,actor,createdAt,undoneAt FROM action_batches ORDER BY sequence DESC' +
+          (query ? ' LIMIT 200' : ''),
       ),
       jobs: this.all<{ id: string }>(
         "SELECT id FROM jobs WHERE status IN ('queued','running') OR id IN (SELECT id FROM jobs ORDER BY createdAt DESC LIMIT 20) ORDER BY createdAt DESC",
@@ -1281,9 +1481,17 @@ export class Store {
             transactionIds: JSON.parse((m.transactionIds as string) || '[]'),
           }) as unknown as Message,
       ),
-      dashboard: calculateDashboard(transactions, people, repayments, from, to),
+      dashboard: query
+        ? {
+            ...this.dashboard(from, to),
+            people: this.dashboard(from, to).people.map((p) => ({ ...p, expenses: [] })),
+          }
+        : calculateDashboard(transactions, people, repayments, from, to),
       imports: this.all(
-        "SELECT id,fileName,accountId,createdAt,summary FROM imports WHERE status='confirmed' ORDER BY createdAt DESC",
+        "SELECT id,fileName,accountId,createdAt,summary FROM imports WHERE status='confirmed' ORDER BY createdAt DESC" +
+          (query
+            ? ' LIMIT 100 OFFSET ' + (query.view === 'imports' ? (query.page || 0) * 100 : 0)
+            : ''),
       ),
       aiConfigured: !!process.env.OPENAI_API_KEY || process.env.AGENT_MODE === 'mock',
     };

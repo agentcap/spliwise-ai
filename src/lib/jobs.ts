@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto';
+import { config } from './config';
 import type { Store } from './store';
 import { askAgent, type AgentPlan } from './agent';
 import { ruleProposal } from './rules';
@@ -12,14 +14,21 @@ export function claimJob(store: Store): AgentJob | undefined {
           "UPDATE jobs SET status='cancelled',updatedAt=? WHERE cancelRequested=1 AND status IN ('queued','running') AND leaseUntil<?",
         )
         .run(timestamp(), Date.now());
+      store.db
+        .prepare(
+          "UPDATE jobs SET status='failed',error='Recovery attempt limit reached. Review completed batches before retrying.',leaseUntil=0,leaseToken=NULL,updatedAt=? WHERE status IN ('queued','running') AND leaseUntil<? AND attempts>=?",
+        )
+        .run(timestamp(), Date.now(), config().maxJobAttempts);
       const row = store.one<{ id: string }>(
         "SELECT id FROM jobs WHERE cancelRequested=0 AND (status='queued' OR (status='running' AND leaseUntil<?)) ORDER BY createdAt LIMIT 1",
         Date.now(),
       );
       if (!row) return;
       store.db
-        .prepare("UPDATE jobs SET status='running',leaseUntil=?,updatedAt=? WHERE id=?")
-        .run(Date.now() + 30000, timestamp(), row.id);
+        .prepare(
+          "UPDATE jobs SET status='running',leaseUntil=?,updatedAt=?,leaseToken=?,attempts=attempts+1 WHERE id=?",
+        )
+        .run(Date.now() + 30000, timestamp(), randomUUID(), row.id);
       return store.job(row.id);
     })
     .immediate();
@@ -31,11 +40,18 @@ export function applyStep(
   plan: AgentPlan,
   nextCursor: number,
   progress: number,
+  leaseToken?: string | null,
 ): void {
   store.db
     .transaction(() => {
       const job = store.job(jobId);
       if (job.cancelRequested) throw new Error('Job cancelled.');
+      if (leaseToken)
+        invariant(
+          job.status === 'running' && job.leaseToken === leaseToken && job.leaseUntil > Date.now(),
+          'Job lease was lost.',
+          409,
+        );
       if (job.cursor !== cursor) return;
       const updates = plan.updates.filter((u) => {
         const t = store.transaction(u.id);
@@ -92,8 +108,16 @@ export async function executeJob(store: Store, job: AgentJob, signal?: AbortSign
           )
           .run(response, activity, timestamp(), job.id);
       };
-      const plan = await askAgent(store, job.payload.text!, job.payload.ids, signal, progress);
-      applyStep(store, job.id, 0, plan, 1, 100);
+      const plan = await askAgent(
+        store,
+        job.payload.text!,
+        job.payload.ids,
+        signal,
+        progress,
+        job.id,
+      );
+      if (signal?.aborted) throw new Error('Job interrupted.');
+      applyStep(store, job.id, 0, plan, 1, 100, job.leaseToken);
     }
   } else {
     const ids = job.payload.ids || [];
@@ -134,12 +158,19 @@ export async function executeJob(store: Store, job: AgentJob, signal?: AbortSign
           });
         else needsAI.push(tx.id);
       }
-      if (needsAI.length && (process.env.OPENAI_API_KEY || process.env.AGENT_MODE === 'mock')) {
+      const aiAllowed = !config().production || !!store.settings().consentAt;
+      if (
+        needsAI.length &&
+        aiAllowed &&
+        (process.env.OPENAI_API_KEY || process.env.AGENT_MODE === 'mock')
+      ) {
         const ai = await askAgent(
           store,
           'Process the selected unfinished transactions. Follow their saved individual instructions and approved rules. Infer only when the evidence is strong; otherwise ask a focused question.',
           needsAI,
           signal,
+          undefined,
+          job.id,
         );
         plan.updates.push(...ai.updates);
         plan.rules.push(...ai.rules);
@@ -151,8 +182,9 @@ export async function executeJob(store: Store, job: AgentJob, signal?: AbortSign
             version: tx.version,
             proposal: null,
             state: 'inbox',
-            attention:
-              'No approved rule matches. Add a rule, edit the split manually, or enable AI with your API key.',
+            attention: !aiAllowed
+              ? 'Enable AI processing in Settings, or enter a split manually.'
+              : 'No approved rule matches. Add a rule, edit the split manually, or enable AI with your API key.',
           });
         }
       }
@@ -165,6 +197,7 @@ export async function executeJob(store: Store, job: AgentJob, signal?: AbortSign
         ' transactions. ' +
         plan.updates.filter((u) => u.state === 'ready').length +
         ' proposals ready in this batch.';
+      if (signal?.aborted) throw new Error('Job interrupted.');
       applyStep(
         store,
         job.id,
@@ -172,12 +205,13 @@ export async function executeJob(store: Store, job: AgentJob, signal?: AbortSign
         plan,
         next,
         Math.round((next / Math.max(1, ids.length)) * 100),
+        job.leaseToken,
       );
     }
   }
   store.db
     .prepare(
-      "UPDATE jobs SET status='completed',progress=100,activity='',response='',leaseUntil=0,updatedAt=? WHERE id=? AND cancelRequested=0",
+      "UPDATE jobs SET status=CASE WHEN cancelRequested=1 THEN 'cancelled' ELSE 'completed' END,progress=100,activity='',response='',leaseUntil=0,updatedAt=? WHERE id=? AND (leaseToken=? OR leaseToken IS NULL)",
     )
-    .run(timestamp(), job.id);
+    .run(timestamp(), job.id, job.leaseToken);
 }

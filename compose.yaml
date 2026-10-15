@@ -1,0 +1,55 @@
+name: splitwise-ai
+services:
+  app:
+    build: .
+    image: splitwise-ai:${RELEASE_TAG:-local}
+    env_file: .env.production
+    environment:
+      APP_MODE: production
+      APP_HOST: 0.0.0.0
+      CONTROL_DATABASE_PATH: /app/data/control.sqlite
+      WORKSPACE_ROOT: /app/data/workspaces
+    volumes:
+      - app_data:/app/data
+    expose: ['3000']
+    restart: unless-stopped
+    init: true
+    stop_grace_period: 40s
+    read_only: true
+    tmpfs:
+      - /tmp:size=1073741824,mode=1777
+      - /app/.next/cache:uid=1000,gid=1000
+    security_opt: ['no-new-privileges:true']
+    cap_drop: ['ALL']
+    logging: { driver: json-file, options: { max-size: '10m', max-file: '5' } }
+  proxy:
+    image: caddy:2-alpine
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:?Set APP_DOMAIN in .env.production}
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    ports: ['80:80', '443:443', '443:443/udp']
+    restart: unless-stopped
+    depends_on: [app]
+    logging: { driver: json-file, options: { max-size: '10m', max-file: '5' } }
+  operations:
+    image: splitwise-ai:${RELEASE_TAG:-local}
+    profiles: ['operations']
+    env_file: [.env.production, .env.backup]
+    environment:
+      APP_MODE: production
+      CONTROL_DATABASE_PATH: /app/data/control.sqlite
+      WORKSPACE_ROOT: /app/data/workspaces
+      RESTIC_PASSWORD_FILE: /run/secrets/restic_password
+    volumes:
+      - app_data:/app/data
+      - ./secrets/restic-password:/run/secrets/restic_password:ro
+    tmpfs: ['/tmp:size=1073741824,mode=1777']
+    user: '1000:1000'
+    command: ['npm', 'run', 'backup:all']
+volumes:
+  app_data:
+  caddy_data:
+  caddy_config:

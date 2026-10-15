@@ -1,0 +1,1 @@
+CREATE INDEX `transaction_review_order` ON `transactions` (`state`,`updatedAt`,`id`);

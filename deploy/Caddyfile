@@ -1,0 +1,16 @@
+{$APP_DOMAIN} {
+  encode zstd gzip
+  request_body {
+    max_size 11MB
+  }
+  reverse_proxy app:3000 {
+    header_up Host {host}
+    header_up X-Real-IP {remote_host}
+    header_up -X-Forwarded-Host
+    flush_interval -1
+    transport http {
+      dial_timeout 5s
+      response_header_timeout 30s
+    }
+  }
+}

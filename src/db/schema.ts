@@ -74,7 +74,11 @@ export const transactions = sqliteTable(
     batchId: text(),
     updatedAt: text().notNull(),
   },
-  (t) => [index('transaction_state').on(t.state), index('transaction_date').on(t.date)],
+  (t) => [
+    index('transaction_state').on(t.state),
+    index('transaction_date').on(t.date),
+    index('transaction_review_order').on(t.state, t.updatedAt, t.id),
+  ],
 );
 export const rules = sqliteTable('rules', {
   id: text().primaryKey(),
@@ -124,6 +128,8 @@ export const jobs = sqliteTable('jobs', {
   error: text().notNull().default(''),
   cancelRequested: integer().notNull().default(0),
   leaseUntil: integer().notNull().default(0),
+  leaseToken: text(),
+  attempts: integer().notNull().default(0),
   createdAt: text().notNull(),
   updatedAt: text().notNull(),
 });
@@ -145,4 +151,21 @@ export const dataTransfers = sqliteTable('data_transfers', {
   status: text().notNull().default('draft'),
   createdAt: text().notNull(),
   summary: text().notNull().default(''),
+});
+
+export const receipts = sqliteTable('receipts', {
+  key: text().primaryKey(),
+  digest: text().notNull(),
+  response: text().notNull(),
+  createdAt: text().notNull(),
+});
+export const workspaceSettings = sqliteTable('workspace_settings', {
+  id: text().primaryKey().default('main'),
+  timezone: text().notNull().default('America/Los_Angeles'),
+  consentAt: text(),
+});
+
+export const ledgerRevision = sqliteTable('ledger_revision', {
+  id: text().primaryKey(),
+  revision: integer().notNull().default(0),
 });

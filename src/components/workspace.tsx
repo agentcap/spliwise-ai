@@ -1,5 +1,5 @@
 'use client';
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, useRef } from 'react';
 import {
   ArrowDownLeft,
   ArrowDownUp,
@@ -26,6 +26,7 @@ import {
   Leaf,
   RefreshCw,
   ReceiptText,
+  Settings,
   Trash2,
 } from 'lucide-react';
 import { money } from '@/lib/money';
@@ -36,10 +37,16 @@ import ChatPanel from './chat-panel';
 import { DeleteRuleDialog, OptimizeRulesDialog } from './rule-management';
 import DataTransferDialog from './data-transfer-dialog';
 import ThemeToggle from './theme-toggle';
-import { api, Modal, ruleDescription, merchantLabel, ActionErrorContext } from './ui';
+import SettingsDialog from './settings-dialog';
+import PersonLedger from './person-ledger';
+import { WorkspaceProviders } from './timezone';
+import { api, Modal, ruleDescription, merchantLabel } from './ui';
 import { ImportDialog, PersonDialog, RepaymentDialog, SplitDialog, RuleDialog } from './dialogs';
 type View = 'overview' | 'review' | 'finalized' | 'people' | 'rules' | 'imports';
 export default function Workspace() {
+  const [page, setPage] = useState(0),
+    [settingsOpen, setSettingsOpen] = useState(false),
+    [fetchedDetail, setFetchedDetail] = useState<Transaction | null>(null);
   const [data, setData] = useState<Snapshot | null>(null),
     [view, setView] = useState<View>('overview'),
     [notice, setNotice] = useState<{ text: string; error?: boolean } | null>(null),
@@ -67,16 +74,43 @@ export default function Workspace() {
     [deletingRule, setDeletingRule] = useState<Rule | null>(null),
     [optimizingRules, setOptimizingRules] = useState(false),
     [transferKind, setTransferKind] = useState<'transactions' | 'rules' | null>(null);
+  const fetchSequence = useRef(0);
   const fetchData = useCallback(async () => {
-    const q = new URLSearchParams();
+    const q = new URLSearchParams({ paged: '1', view, page: String(page) });
+    if (search) q.set('search', search);
+    if (accountFilter) q.set('account', accountFilter);
+    if (personFilter) q.set('person', personFilter);
     if (from) q.set('from', from);
     if (to) q.set('to', to);
+    const sequence = ++fetchSequence.current;
     try {
-      setData(await api<Snapshot>('state?' + q));
+      const next = await api<Snapshot>('state?' + q);
+      if (sequence === fetchSequence.current) setData(next);
     } catch (e) {
       setNotice({ text: (e as Error).message, error: true });
     }
-  }, [from, to]);
+  }, [from, to, view, page, search, accountFilter, personFilter]);
+  useEffect(() => {
+    setPage(0);
+    setSelected(new Set());
+  }, [view, from, to, search, accountFilter, personFilter]);
+  useEffect(() => {
+    if (!detailTxId) {
+      setFetchedDetail(null);
+      return;
+    }
+    let active = true;
+    api<Transaction>('transactions/' + detailTxId)
+      .then((tx) => {
+        if (active) setFetchedDetail(tx);
+      })
+      .catch((e) => {
+        if (active) setNotice({ text: e.message, error: true });
+      });
+    return () => {
+      active = false;
+    };
+  }, [detailTxId]);
   useEffect(() => {
     fetchData();
   }, [fetchData]);
@@ -84,7 +118,10 @@ export default function Workspace() {
   useEffect(() => {
     if (!currentJob) return;
     const source = new EventSource('/api/jobs/' + currentJob.id + '/events');
-    source.onmessage = () => {
+    source.onmessage = (event) => {
+      try {
+        if (view === 'review' && JSON.parse(event.data).status === 'completed') setPage(0);
+      } catch {}
       fetchData();
     };
     source.onerror = () => {
@@ -217,7 +254,9 @@ export default function Workspace() {
       </div>
     );
   const d = data.dashboard;
-  const detailTx = data.transactions.find((t) => t.id === detailTxId);
+  const detailTx =
+    data.transactions.find((t) => t.id === detailTxId) ||
+    (fetchedDetail?.id === detailTxId ? fetchedDetail : null);
   const filtered = data.transactions.filter(
     (t) =>
       (!from || t.date >= from) &&
@@ -476,7 +515,10 @@ export default function Workspace() {
     });
   }
   return (
-    <ActionErrorContext.Provider value={notice?.error ? notice.text : null}>
+    <WorkspaceProviders
+      error={notice?.error ? notice.text : null}
+      timeZone={data.workspace?.timezone || 'America/Los_Angeles'}
+    >
       <div className={'app-shell ' + (chatOpen ? 'has-chat' : '')}>
         <aside className="sidebar">
           <a href="/" className="brand">
@@ -505,7 +547,10 @@ export default function Workspace() {
           <div className="sidebar-bottom">
             <div className="local-badge">
               <span />
-              Personal workspace<small>Saved on this computer</small>
+              Personal workspace
+              <small>
+                {data.workspace?.production ? 'Private server storage' : 'Saved on this computer'}
+              </small>
             </div>
             <button className="sidebar-import" onClick={() => setImportOpen(true)}>
               <Plus size={18} />
@@ -514,7 +559,8 @@ export default function Workspace() {
             <div className="self-profile">
               <span className="avatar">M</span>
               <div>
-                My workspace<small>USD · Local</small>
+                My workspace
+                <small>USD · {data.workspace?.production ? 'Private' : 'Local'}</small>
               </div>
               <Leaf size={17} />
             </div>
@@ -527,6 +573,14 @@ export default function Workspace() {
               <b>{title}</b>
             </div>
             <div className="topbar-actions">
+              <button
+                className="icon-button"
+                aria-label="Workspace settings"
+                title="Settings"
+                onClick={() => setSettingsOpen(true)}
+              >
+                <Settings size={18} />
+              </button>
               <ThemeToggle />
               <button
                 className="quiet-button"
@@ -770,7 +824,9 @@ export default function Workspace() {
                         )}
                         <div className="person-card-footer">
                           <span>
-                            {b.expenses.filter((e) => e.remainingCents > 0).length} unpaid expenses
+                            {b.unpaidExpenseCount ??
+                              b.expenses.filter((e) => e.remainingCents > 0).length}{' '}
+                            unpaid expenses
                           </span>
                           <button
                             className="text-button"
@@ -929,7 +985,15 @@ export default function Workspace() {
                       }
                     >
                       <Sparkles size={16} />
-                      {selected.size ? 'Process selected' : 'Process Inbox'}
+                      {selected.size
+                        ? 'Process selected'
+                        : data.pagination &&
+                            data.pagination.inbox >
+                              filtered.filter((t) => t.state === 'inbox').length
+                          ? 'Process this page (' +
+                            filtered.filter((t) => t.state === 'inbox').length +
+                            ')'
+                          : 'Process Inbox'}
                     </button>
                   </div>
                 </div>
@@ -1028,6 +1092,35 @@ export default function Workspace() {
                 </p>
               </>
             )}
+            {(view === 'review' || view === 'finalized' || view === 'imports') &&
+              data.pagination && (
+                <div className="pagination">
+                  <button
+                    className="quiet-button"
+                    disabled={!page}
+                    onClick={() => setPage(page - 1)}
+                  >
+                    Previous page
+                  </button>
+                  <span>
+                    Page {page + 1} · up to {data.pagination.size}
+                    {view === 'review' ? ' per column' : ''} ·{' '}
+                    {view === 'review'
+                      ? data.pagination.inbox + data.pagination.ready
+                      : view === 'imports'
+                        ? data.pagination.imports
+                        : data.pagination.finalized}{' '}
+                    matching {view === 'imports' ? 'imports' : 'transactions'}
+                  </span>
+                  <button
+                    className="quiet-button"
+                    disabled={(page + 1) * data.pagination.size >= data.pagination.total}
+                    onClick={() => setPage(page + 1)}
+                  >
+                    Next page
+                  </button>
+                </div>
+              )}
             {view === 'finalized' && (
               <>
                 {filters}
@@ -1325,7 +1418,11 @@ export default function Workspace() {
                           <b>{i.fileName}</b>
                         </td>
                         <td>{data.accounts.find((a) => a.id === i.accountId)?.name}</td>
-                        <td>{new Date(i.createdAt).toLocaleDateString()}</td>
+                        <td>
+                          {new Date(i.createdAt).toLocaleDateString(undefined, {
+                            timeZone: data.workspace?.timezone,
+                          })}
+                        </td>
                         <td>
                           {i.summary}
                           <small>
@@ -1471,6 +1568,13 @@ export default function Workspace() {
             }}
           />
         )}
+        {settingsOpen && (
+          <SettingsDialog
+            data={data}
+            onClose={() => setSettingsOpen(false)}
+            onChanged={fetchData}
+          />
+        )}
         {personDetail && (
           <Modal
             title={data.people.find((p) => p.id === personDetail)?.name + "'s expenses"}
@@ -1479,57 +1583,15 @@ export default function Workspace() {
             onClose={() => setPersonDetail(null)}
           >
             <div className="modal-body">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Expense</th>
-                    <th>Allocated</th>
-                    <th>Refunded</th>
-                    <th>Paid</th>
-                    <th>Unpaid</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {d.people
-                    .find((p) => p.person.id === personDetail)
-                    ?.expenses.filter((e) => (!from || e.date >= from) && (!to || e.date <= to))
-                    .map((e) => (
-                      <tr key={e.transactionId}>
-                        <td>
-                          <b>{e.description}</b>
-                          <small>{e.date}</small>
-                          <button
-                            className="text-button saved-context-link"
-                            onClick={() => {
-                              setPersonDetail(null);
-                              setDetailTxId(e.transactionId);
-                            }}
-                          >
-                            View expense
-                          </button>
-                        </td>
-                        <td>{money(e.allocatedCents)}</td>
-                        <td>{money(e.refundedCents)}</td>
-                        <td>{money(e.paidCents)}</td>
-                        <td>
-                          <b>{money(e.remainingCents)}</b>
-                        </td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
-              <h3 className="spaced">Repayment history</h3>
-              {data.repayments
-                .filter((r) => r.personId === personDetail)
-                .map((r) => (
-                  <div key={r.id} className="repayment-row">
-                    <span>
-                      {r.date} · {r.direction === 'received' ? 'Received' : 'Returned'}
-                      <small>{r.note}</small>
-                    </span>
-                    <b>{money(r.amountCents)}</b>
-                  </div>
-                ))}
+              <PersonLedger
+                id={personDetail}
+                from={from}
+                to={to}
+                onOpen={(id) => {
+                  setPersonDetail(null);
+                  setDetailTxId(id);
+                }}
+              />
               <button
                 className="primary spaced"
                 onClick={() => {
@@ -1640,11 +1702,7 @@ export default function Workspace() {
           <DeleteRuleDialog
             rule={deletingRule}
             data={data}
-            affected={
-              data.transactions.filter(
-                (tx) => tx.state !== 'finalized' && tx.proposal?.ruleId === deletingRule.id,
-              ).length
-            }
+            affected={deletingRule.unfinishedCount || 0}
             onClose={() => setDeletingRule(null)}
             onDelete={async (rule) => {
               const result = await api<{ affected: number }>('rules/delete', {
@@ -1699,6 +1757,6 @@ export default function Workspace() {
           />
         )}
       </div>
-    </ActionErrorContext.Provider>
+    </WorkspaceProviders>
   );
 }

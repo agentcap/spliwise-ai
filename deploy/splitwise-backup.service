@@ -1,0 +1,11 @@
+[Unit]
+Description=Splitwise AI encrypted off-host backup
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/splitwise-ai
+ExecStart=/usr/bin/docker compose --env-file .env.production run --rm operations npm run backup:all
+TimeoutStartSec=45min

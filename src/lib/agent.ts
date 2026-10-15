@@ -3,6 +3,8 @@ import { z } from 'zod';
 import type { Store } from './store';
 import { splitAmount } from './money';
 import { invariant } from './errors';
+import { agentModel } from './usage';
+import { config } from './config';
 import type { Proposal, RuleDefinition, Transaction } from './types';
 setTracingDisabled(true);
 export const splitSchema = z.object({
@@ -54,7 +56,13 @@ export async function askAgent(
   ids: string[] | undefined,
   signal?: AbortSignal,
   onProgress?: (progress: AgentProgress) => void,
+  jobId?: string,
 ): Promise<AgentPlan> {
+  invariant(
+    !config().production || store.settings().consentAt,
+    'Review Privacy & AI in Settings before using the assistant.',
+    403,
+  );
   const plan: AgentPlan = { message: '', updates: [], rules: [] };
   onProgress?.({ activity: 'Reading your instructions…' });
   const allowed = ids ? new Set(ids) : undefined;
@@ -63,6 +71,7 @@ export async function askAgent(
     invariant(!allowed || allowed.has(tx.id), 'Transaction is outside the selected scope.');
   };
   if (process.env.AGENT_MODE === 'mock') {
+    invariant(!config().production, 'Test agents are forbidden in production.', 403);
     const target = store
       .transactions()
       .filter((t) => t.state !== 'finalized' && (!allowed || allowed.has(t.id)));
@@ -314,7 +323,7 @@ export async function askAgent(
   ];
   const agent = new Agent({
     name: 'Splitwise AI',
-    model: process.env.OPENAI_MODEL || 'gpt-6-luna',
+    model: await agentModel(store.workspaceId, jobId),
     tools,
     instructions: [
       'You help one user allocate credit-card expenses. All amounts are USD integer cents. Purchases positive, refunds negative.',
@@ -335,7 +344,7 @@ export async function askAgent(
       'Use concise Markdown with short paragraphs or bullets. State completed changes, distinguish pending proposals from finalized records, and avoid promises that tools have not applied.',
       'Be concise and state which proposals or rule changes you made. Never claim to have finalized an expense.',
     ].join('\n'),
-    modelSettings: { store: false },
+    modelSettings: { store: false, retry: { maxRetries: 0 } },
   });
   const selected = store
     .transactions()
@@ -350,11 +359,14 @@ export async function askAgent(
       userInstruction: text,
       selectedTransactions: allowed ? selected : [],
       people: store.people(),
-      approvedRules: store.rules().filter((rule) => rule.active),
+      approvedRules: store
+        .rules()
+        .filter((rule) => rule.active)
+        .slice(0, 100),
       recentConversation: history,
       scope: allowed ? 'Only selected IDs may change' : 'Search unfinished transactions as needed',
     }),
-    { maxTurns: 16, signal, stream: true },
+    { maxTurns: 12, signal, stream: true },
   );
   let streamed = '';
   for await (const event of result) {

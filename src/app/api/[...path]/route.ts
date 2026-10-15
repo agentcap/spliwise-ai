@@ -1,5 +1,14 @@
-import { getDb } from '@/db';
-import { Store } from '@/lib/store';
+import { randomUUID } from 'node:crypto';
+import { authenticate, secureCookie, SESSION_COOKIE } from '@/lib/auth';
+import { workspaceStore, closeInactiveWorkspaces } from '@/lib/workspaces';
+import { config } from '@/lib/config';
+import { controlDb } from '@/db/control';
+import { checkOrigin, rateLimit, boundedJson, boundedForm } from '@/lib/security';
+import { log } from '@/lib/log';
+import { readiness } from '@/lib/health';
+import { queryLedger } from '@/lib/ledger-query';
+import { exportWorkspace } from '@/lib/account-data';
+import { usageSummary } from '@/lib/usage';
 import { AppError, invariant } from '@/lib/errors';
 import { z } from 'zod';
 import { DataTransfer, transactionCsv } from '@/lib/data-transfer';
@@ -8,28 +17,64 @@ import type { Proposal, RuleDefinition } from '@/lib/types';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 type Context = { params: Promise<{ path: string[] }> };
+const inactiveCleanup = setInterval(closeInactiveWorkspaces, 10_000);
+inactiveCleanup.unref();
 const itemSchema = z.object({ id: z.string(), version: z.number().int().positive() });
-function store() {
-  return new Store(getDb());
-}
-function checkOrigin(req: Request) {
-  const host = new URL('http://' + (req.headers.get('host') || ''));
-  invariant(['127.0.0.1', 'localhost', '[::1]'].includes(host.hostname), 'Local access only.', 403);
-  const origin = req.headers.get('origin');
-  invariant(
-    !origin || new URL(origin).host === host.host,
-    'This request came from another website.',
-    403,
-  );
-}
-async function handle(req: Request, context: Context): Promise<Response> {
+async function handle(req: Request, context: Context, requestId: string): Promise<Response> {
+  const started = Date.now();
   try {
     checkOrigin(req);
     const path = (await context.params).path;
     const key = path.join('/');
-    const service = store();
+    if (key === 'health' && req.method === 'GET') {
+      config();
+      return Response.json({ ok: true }, { headers: { 'Cache-Control': 'no-store' } });
+    }
+    if (key === 'ready' && req.method === 'GET') {
+      const status = readiness();
+      return Response.json(
+        { ok: status.ok },
+        { status: status.ok ? 200 : 503, headers: { 'Cache-Control': 'no-store' } },
+      );
+    }
+    const principal = authenticate(req);
+    const identity = principal?.id || 'local';
+    if (config().production) {
+      rateLimit(
+        controlDb(),
+        identity,
+        req.method === 'GET' ? 'read' : 'write',
+        req.method === 'GET' ? 600 : 180,
+      );
+      if (
+        key === 'jobs' ||
+        key === 'transactions/instruct' ||
+        key === 'imports/finish' ||
+        key.endsWith('/retry')
+      )
+        rateLimit(controlDb(), identity, 'processing', 20);
+      if (key === 'imports/preview' || key === 'transfer/preview')
+        rateLimit(controlDb(), identity, 'uploads', 10);
+    }
+    const service = workspaceStore(principal);
+    if (key === 'settings' && req.method === 'GET')
+      return Response.json(
+        {
+          production: config().production,
+          email: principal?.email,
+          name: principal?.name,
+          ...service.settings(),
+          usage: usageSummary(identity),
+        },
+        { headers: { 'Cache-Control': 'no-store' } },
+      );
+
     if (req.method === 'GET') {
       const url = new URL(req.url);
+      if (key === 'account/export') {
+        rateLimit(controlDb(), identity, 'full-export', 3, 300_000);
+        return await exportWorkspace(service);
+      }
       if (key === 'transfer/export') {
         const kind = z.enum(['transactions', 'rules']).parse(url.searchParams.get('kind'));
         const format = z.enum(['json', 'csv']).parse(url.searchParams.get('format') || 'json');
@@ -74,7 +119,6 @@ async function handle(req: Request, context: Context): Promise<Response> {
         return Response.json(service.previewRuleOptimization(), {
           headers: { 'Cache-Control': 'no-store' },
         });
-      if (key === 'health') return Response.json({ ok: true });
       if (path[0] === 'imports' && path.length === 2) {
         const record = service.one<{ preview: string; summary: string }>(
           'SELECT preview,summary FROM imports WHERE id=? AND status=?',
@@ -91,11 +135,48 @@ async function handle(req: Request, context: Context): Promise<Response> {
           ),
         });
       }
+      if (key === 'transactions')
+        return Response.json(
+          queryLedger(
+            service.db,
+            {
+              view: 'finalized',
+              positive: true,
+              search: url.searchParams.get('search') || undefined,
+              page: Number(url.searchParams.get('page') || 0),
+            },
+            50,
+          ),
+          { headers: { 'Cache-Control': 'no-store' } },
+        );
+      if (path[0] === 'transactions' && path.length === 2)
+        return Response.json(service.transaction(path[1]), {
+          headers: { 'Cache-Control': 'no-store' },
+        });
+      if (path[0] === 'balances' && path.length === 2)
+        return Response.json(
+          service.personLedger(
+            path[1],
+            url.searchParams.get('from') || undefined,
+            url.searchParams.get('to') || undefined,
+            Number(url.searchParams.get('page') || 0),
+          ),
+          { headers: { 'Cache-Control': 'no-store' } },
+        );
       if (key === 'state')
         return Response.json(
           service.snapshot(
             url.searchParams.get('from') || undefined,
             url.searchParams.get('to') || undefined,
+            url.searchParams.has('paged') || config().production
+              ? {
+                  view: url.searchParams.get('view') || 'overview',
+                  page: Number(url.searchParams.get('page') || 0),
+                  search: url.searchParams.get('search') || undefined,
+                  accountId: url.searchParams.get('account') || undefined,
+                  personId: url.searchParams.get('person') || undefined,
+                }
+              : undefined,
           ),
           { headers: { 'Cache-Control': 'no-store' } },
         );
@@ -107,7 +188,20 @@ async function handle(req: Request, context: Context): Promise<Response> {
           start(controller) {
             let count = 0;
             const send = () => {
-              if (req.signal.aborted) {
+              let signedIn = true;
+              try {
+                authenticate(req);
+              } catch {
+                signedIn = false;
+              }
+              if (
+                !signedIn ||
+                req.signal.aborted ||
+                (principal &&
+                  !controlDb()
+                    .prepare("SELECT id FROM principals WHERE id=? AND status='active'")
+                    .get(principal.id))
+              ) {
                 if (timer) clearInterval(timer);
                 controller.close();
                 return;
@@ -131,13 +225,14 @@ async function handle(req: Request, context: Context): Promise<Response> {
             'Content-Type': 'text/event-stream',
             'Cache-Control': 'no-cache',
             Connection: 'keep-alive',
+            'X-Accel-Buffering': 'no',
           },
         });
       }
       throw new AppError('Not found.', 404);
     }
     if (key === 'transfer/preview') {
-      const form = await req.formData();
+      const form = await boundedForm(req);
       const file = form.get('file');
       invariant(
         file instanceof File && file.size <= 10_000_000,
@@ -147,7 +242,7 @@ async function handle(req: Request, context: Context): Promise<Response> {
       return Response.json(new DataTransfer(service).preview(kind, file.name, await file.text()));
     }
     if (key === 'imports/preview') {
-      const form = await req.formData();
+      const form = await boundedForm(req);
       const file = form.get('file');
       invariant(
         file instanceof File && file.size <= 10_000_000,
@@ -157,12 +252,39 @@ async function handle(req: Request, context: Context): Promise<Response> {
         service.preview(String(form.get('accountId') || ''), file.name, await file.text()),
       );
     }
-    invariant(
-      Number(req.headers.get('content-length') || 0) <=
-        (key === 'imports/finish' ? 8_000_000 : 2_000_000),
-      'Request is too large.',
-    );
-    const body = await req.json();
+    const body = await boundedJson(req, key === 'imports/finish' ? 8_000_000 : 2_000_000);
+    if (key === 'account/delete') {
+      invariant(principal, 'Account deletion requires a signed-in account.', 403);
+      z.object({ confirm: z.literal('DELETE') }).parse(body);
+      controlDb()
+        .transaction(() => {
+          controlDb()
+            .prepare("UPDATE principals SET status='deleting',deletionAt=? WHERE id=?")
+            .run(Date.now(), principal.id);
+          controlDb().prepare('DELETE FROM sessions WHERE principalId=?').run(principal.id);
+        })
+        .immediate();
+      service.db
+        .prepare(
+          "UPDATE jobs SET cancelRequested=1,status=CASE WHEN status='queued' THEN 'cancelled' ELSE status END WHERE status IN ('queued','running')",
+        )
+        .run();
+      return Response.json(
+        { ok: true },
+        { headers: { 'Set-Cookie': secureCookie(SESSION_COOKIE, '', 0) } },
+      );
+    }
+    if (key === 'settings') {
+      const a = z.object({ timezone: z.string().max(100), consent: z.boolean() }).parse(body);
+      service.updateSettings(a.timezone, a.consent);
+      return Response.json({ ok: true });
+    }
+    if (key === 'accounts') {
+      const a = z
+        .object({ name: z.string().trim().min(1).max(80), format: z.enum(['chase', 'amex']) })
+        .parse(body);
+      return Response.json({ id: service.addAccount(a.name, a.format) });
+    }
     if (key === 'transfer/confirm') {
       const a = z
         .object({
@@ -232,6 +354,10 @@ async function handle(req: Request, context: Context): Promise<Response> {
         .parse(body);
       service.review(a.items, a.action, a.instruction);
       return Response.json({ ok: true });
+    }
+    if (key === 'refunds/quote') {
+      const a = z.object({ refundId: z.string(), originalId: z.string() }).parse(body);
+      return Response.json(service.quoteRefund(a.refundId, a.originalId));
     }
     if (key === 'transactions/proposal') {
       const a = z
@@ -310,11 +436,20 @@ async function handle(req: Request, context: Context): Promise<Response> {
           date: z.string(),
           amountCents: z.number().int(),
           direction: z.enum(['received', 'returned']),
-          note: z.string(),
+          note: z.string().max(500),
+          requestId: z.string().min(16).max(100),
         })
         .parse(body);
-      service.addRepayment(a.personId, a.date, a.amountCents, a.direction, a.note);
-      return Response.json({ ok: true });
+      const id = service.addRepayment(
+        a.personId,
+        a.date,
+        a.amountCents,
+        a.direction,
+        a.note,
+        'user',
+        a.requestId,
+      );
+      return Response.json({ ok: true, id });
     }
     if (key === 'undo') return Response.json({ label: service.undo() });
     if (key === 'jobs') {
@@ -360,12 +495,22 @@ async function handle(req: Request, context: Context): Promise<Response> {
       );
     if (error instanceof AppError)
       return Response.json({ error: error.message }, { status: error.status });
-    console.error('Request failed:', error instanceof Error ? error.message : 'Unknown error');
+    log('request_failed', { requestId, status: 500, elapsedMs: Date.now() - started });
     return Response.json(
-      { error: 'Unable to complete this action. Please try again.' },
+      { error: 'Unable to complete this action. Please try again.', requestId },
       { status: 500 },
     );
   }
 }
-export const GET = handle;
-export const POST = handle;
+async function instrumented(req: Request, context: Context) {
+  const started = Date.now(),
+    requestId = randomUUID(),
+    response = await handle(req, context, requestId);
+  response.headers.set('X-Request-ID', requestId);
+  response.headers.set('Cache-Control', 'no-store');
+  if (response.status === 429) response.headers.set('Retry-After', '60');
+  log('http_request', { requestId, status: response.status, elapsedMs: Date.now() - started });
+  return response;
+}
+export const GET = instrumented;
+export const POST = instrumented;

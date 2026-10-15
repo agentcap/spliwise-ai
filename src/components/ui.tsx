@@ -17,6 +17,7 @@ export async function api<T = unknown>(path: string, body?: unknown): Promise<T>
         },
   );
   const d = await r.json();
+  if (r.status === 401) window.location.assign('/login');
   if (!r.ok) throw new Error(d.error || 'Action failed.');
   return d as T;
 }

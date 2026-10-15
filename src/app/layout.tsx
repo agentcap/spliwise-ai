@@ -1,4 +1,5 @@
 import type { Metadata } from 'next';
+import { headers } from 'next/headers';
 import './globals.css';
 import './theme.css';
 import './assistant.css';
@@ -12,11 +13,12 @@ export const metadata: Metadata = {
 const initializeTheme =
   "(function(){var theme='dark';try{var saved=localStorage.getItem('splitwise-ai-theme');if(saved==='light'||saved==='dark')theme=saved;}catch(e){}document.documentElement.dataset.theme=theme;})();";
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  const nonce = (await headers()).get('x-nonce') || undefined;
   return (
     <html lang="en" data-theme="dark" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: initializeTheme }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: initializeTheme }} />
       </head>
       <body>{children}</body>
     </html>

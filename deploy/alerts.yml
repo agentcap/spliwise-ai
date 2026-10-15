@@ -1,0 +1,28 @@
+groups:
+  - name: splitwise
+    rules:
+      - alert: SplitwiseUnreachable
+        expr: up{job="splitwise"} == 0
+        for: 2m
+        annotations: { summary: 'Splitwise AI cannot be reached' }
+      - alert: SplitwiseWorkerUnavailable
+        expr: splitwise_ready == 0 or splitwise_worker_age_seconds < 0 or splitwise_worker_age_seconds > 30
+        for: 1m
+        annotations: { summary: 'Splitwise AI worker or database is unhealthy' }
+      - alert: SplitwiseDiskLow
+        expr: splitwise_free_disk_bytes < 1073741824
+        for: 5m
+        annotations: { summary: 'Splitwise AI has less than 1 GB free' }
+      - alert: SplitwiseBackupOverdue
+        expr: splitwise_backup_age_seconds < 0 or splitwise_backup_age_seconds > 93600
+        for: 10m
+        annotations: { summary: 'Splitwise AI off-host backup is overdue' }
+      - alert: SplitwiseQueueStalled
+        expr: splitwise_oldest_queued_seconds > 600
+        for: 5m
+        annotations: { summary: 'Splitwise AI processing queue is stalled' }
+
+      - alert: SplitwiseJobFailures
+        expr: sum(splitwise_jobs{state="failed"}) > 0
+        for: 5m
+        annotations: { summary: 'Splitwise AI has failed processing jobs to inspect' }

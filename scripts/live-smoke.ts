@@ -1,5 +1,6 @@
 import { openDatabase } from '../src/db';
 import { Store } from '../src/lib/store';
+import { usageSummary } from '../src/lib/usage';
 import { askAgent } from '../src/lib/agent';
 if (!process.env.OPENAI_API_KEY) {
   console.log('SKIP: Set OPENAI_API_KEY to run the opt-in live smoke test.');
@@ -21,7 +22,7 @@ store.instruct(
   instruction,
 );
 let streamedText = false;
-const result = await askAgent(store, instruction, ids, undefined, (event) => {
+const result = await askAgent(store, instruction, ids, AbortSignal.timeout(90000), (event) => {
   if (event.text) streamedText = true;
 });
 if (!result.updates.length || result.updates[0].proposal?.splits.length !== 2)
@@ -33,5 +34,10 @@ if (
   !store.transaction(ids[0]).notes.some((n) => n.text.includes('hiking trip'))
 )
   throw new Error('Expected a reviewable split with preserved transaction context.');
-console.log('Live agent smoke test passed with synthetic data. No financial records were saved.');
+const usage = usageSummary(store.workspaceId);
+if (!usage.inputTokens || !usage.outputTokens || usage.heldMicros)
+  throw new Error('Expected reported token usage with no unresolved reservation.');
+console.log(
+  'Live agent smoke test passed with synthetic data, streamed output and metered token usage. No financial records were saved.',
+);
 db.close();

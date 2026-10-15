@@ -22,7 +22,7 @@ import type {
 } from '@/lib/types';
 import ChatRuleCard from './chat-rule-card';
 import MentionInput from './mention-input';
-import { displayTime } from '@/lib/display-time';
+import { useDisplayTime } from './timezone';
 
 function RichReply({ text }: { text: string }) {
   return (
@@ -83,6 +83,7 @@ export default function ChatPanel({
   onCancel: (id: string) => Promise<void>;
   onRetry: (id: string) => Promise<void>;
 }) {
+  const displayTime = useDisplayTime();
   const scroller = useRef<HTMLDivElement>(null);
   const nearBottom = useRef(true);
   const lock = useRef(false);
@@ -271,12 +272,12 @@ export default function ChatPanel({
                   <div className="chat-transaction-links">
                     {m.transactionIds.slice(0, 3).map((id) => {
                       const tx = transactions.find((t) => t.id === id);
-                      return tx ? (
+                      return (
                         <button key={id} onClick={() => onTransaction(id)}>
                           <ReceiptText size={11} />
-                          {tx.description}
+                          {tx?.description || 'View expense'}
                         </button>
-                      ) : null;
+                      );
                     })}
                     {m.transactionIds.length > 3 && (
                       <small>+{m.transactionIds.length - 3} more</small>

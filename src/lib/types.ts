@@ -73,6 +73,7 @@ export interface RuleDefinition {
   outputCategory: string;
 }
 export interface Rule {
+  unfinishedCount?: number;
   id: string;
   title: string;
   definition: RuleDefinition;
@@ -184,6 +185,8 @@ export interface AgentJob {
   error: string;
   cancelRequested: number;
   leaseUntil: number;
+  leaseToken: string | null;
+  attempts: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -205,6 +208,7 @@ export interface ExpenseBalance {
   remainingCents: number;
 }
 export interface PersonBalance {
+  unpaidExpenseCount?: number;
   person: Person;
   outstandingCents: number;
   inRangeOutstandingCents: number;
@@ -228,6 +232,16 @@ export interface Dashboard {
   months: { month: string; amountCents: number }[];
 }
 export interface Snapshot {
+  pagination?: {
+    page: number;
+    size: number;
+    total: number;
+    inbox: number;
+    ready: number;
+    finalized: number;
+    imports?: number;
+  };
+  workspace?: { production: boolean; timezone: string; consentAt: string | null };
   people: Person[];
   accounts: Account[];
   categories: Category[];

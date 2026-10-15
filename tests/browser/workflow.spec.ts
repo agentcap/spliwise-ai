@@ -716,3 +716,61 @@ test('ask for date-scoped CSV context, save with mentions, process later, skip d
   expect(state.dashboard.totalOutstandingCents).toBe(balance);
   expect(errors).toEqual([]);
 });
+
+test('settings persist privacy and time zone, add card accounts, download full data, and protect repayment retries', async ({
+  page,
+  request,
+}) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Workspace settings', exact: true }).click();
+  const dialog = page.getByRole('dialog', { name: 'Workspace settings', exact: true });
+  await expect(dialog.getByRole('heading', { name: 'Privacy & AI', exact: true })).toBeVisible();
+  await dialog.getByLabel('Time zone', { exact: true }).fill('UTC');
+  await dialog.getByLabel('Allow AI processing of my workspace data').check();
+  await dialog.getByRole('button', { name: 'Save preferences', exact: true }).click();
+  await expect(dialog.getByRole('status')).toHaveText('Preferences saved.');
+  await dialog.getByLabel('Account name', { exact: true }).fill('Synthetic extra Amex');
+  await dialog.getByLabel('CSV format', { exact: true }).selectOption('amex');
+  await dialog.getByRole('button', { name: 'Add card account', exact: true }).click();
+  await expect(dialog.getByText('Synthetic extra Amex', { exact: true })).toBeVisible();
+  const settings = await (await request.get('/api/settings')).json();
+  expect(settings.timezone).toBe('UTC');
+  expect(settings.consentAt).toBeTruthy();
+  const download = page.waitForEvent('download');
+  await dialog.getByRole('link', { name: 'Download full workspace' }).click();
+  const copy = await download;
+  expect(copy.suggestedFilename()).toBe('splitwise-ai-workspace.sqlite');
+  const copyPath = await copy.path();
+  expect((await readFile(copyPath!)).subarray(0, 15).toString()).toBe('SQLite format 3');
+  await page.setViewportSize({ width: 390, height: 844 });
+  await dialog.getByRole('heading', { name: 'Privacy & AI', exact: true }).scrollIntoViewIfNeeded();
+  await expect(dialog).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.screenshot({ path: 'test-results/production-settings-mobile.png', fullPage: true });
+  await page.setViewportSize({ width: 1440, height: 1000 });
+  await dialog.getByLabel('Close dialog').click();
+  await page.getByRole('button', { name: 'Workspace settings', exact: true }).click();
+  await expect(dialog.getByLabel('Time zone', { exact: true })).toHaveValue('UTC');
+  await page.screenshot({ path: 'test-results/production-settings.png', fullPage: true });
+  await dialog.getByLabel('Close dialog').click();
+  const person = await (
+    await request.post('/api/people', {
+      data: { name: 'Retry Person', handle: 'retry_person', relation: 'Synthetic' },
+    })
+  ).json();
+  const body = {
+    personId: person.id,
+    date: '2026-01-01',
+    amountCents: 500,
+    direction: 'received',
+    note: 'Synthetic retry test',
+    requestId: crypto.randomUUID(),
+  };
+  expect((await request.post('/api/repayments', { data: body })).ok()).toBe(true);
+  expect((await request.post('/api/repayments', { data: body })).ok()).toBe(true);
+  const state = (await (await request.get('/api/state')).json()) as Snapshot;
+  expect(state.repayments.filter((r) => r.personId === person.id)).toHaveLength(1);
+  expect(errors).toEqual([]);
+});

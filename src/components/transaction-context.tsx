@@ -1,7 +1,7 @@
 import { NotebookPen, ChevronDown } from 'lucide-react';
 import type { Transaction } from '@/lib/types';
 import { money } from '@/lib/money';
-import { displayTime } from '@/lib/display-time';
+import { useDisplayTime } from './timezone';
 
 export default function TransactionContext({
   transactions,
@@ -10,6 +10,7 @@ export default function TransactionContext({
   transactions: Transaction[];
   expanded?: boolean;
 }) {
+  const displayTime = useDisplayTime();
   const entries = transactions.flatMap((tx) => tx.notes.map((note) => ({ tx, note })));
   // Existing saved corrections remain visible even if they predate the context migration.
   for (const tx of transactions) {
