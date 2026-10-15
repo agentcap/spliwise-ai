@@ -26,6 +26,7 @@
     "maintenance": "node --env-file-if-exists=.env.local --import tsx scripts/maintenance.ts",
     "deletions": "node --env-file-if-exists=.env.local --import tsx scripts/deletions.ts",
     "check:secrets": "node scripts/check-secrets.mjs",
+    "test:assistant": "node --env-file-if-exists=.env.local --import tsx scripts/assistant-evaluate.ts",
     "test:eval": "node --env-file-if-exists=.env.local --import tsx scripts/evaluate.ts",
     "workspace:adopt": "node --env-file-if-exists=.env.local --import tsx scripts/adopt-workspace.ts",
     "test:production": "node scripts/production-smoke.mjs",

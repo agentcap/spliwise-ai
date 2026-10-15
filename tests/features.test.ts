@@ -1,3 +1,8 @@
+import { AssistantService } from '../src/lib/assistant-service';
+function confirmPrepared(store: Store) {
+  for (const r of new AssistantService(store).requests().filter((r) => r.status === 'pending'))
+    new AssistantService(store).applyRequest(r.id);
+}
 import { test, expect, afterEach, vi } from 'vitest';
 import { openDatabase } from '../src/db';
 import { Store } from '../src/lib/store';
@@ -171,6 +176,7 @@ test('trip processing works without AI or consent and aliases match approved rul
   features.assign([store.transaction(id)], tripId);
   const jobId = store.enqueue('process', { ids: [id] });
   await executeJob(store, claimJob(store)!, undefined);
+  confirmPrepared(store);
   expect(store.job(jobId).status).toBe('completed');
   expect(store.transaction(id).proposal?.source).toBe('trip');
   const second = make('TST* CAFE 004');
@@ -183,6 +189,7 @@ test('trip processing works without AI or consent and aliases match approved rul
   store.reviewRule(rule, true);
   store.enqueue('process', { ids: [second] });
   await executeJob(store, claimJob(store)!);
+  confirmPrepared(store);
   expect(store.transaction(second).proposal?.source).toBe('rule');
   expect(store.transaction(second).description).toBe('TST* CAFE 004');
 });
@@ -272,6 +279,7 @@ test('trip context requires clarification without AI, and explicit Trip default 
   features.assign([store.transaction(id)], tripId);
   store.enqueue('process', { ids: [id] });
   await executeJob(store, claimJob(store)!);
+  confirmPrepared(store);
   expect(store.transaction(id).state).toBe('inbox');
   expect(store.transaction(id).proposal).toBeNull();
   features.quick({ items: [store.transaction(id)], mode: 'trip' });

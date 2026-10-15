@@ -1,3 +1,8 @@
+import { AssistantService } from '../src/lib/assistant-service';
+function confirmPrepared(store: Store) {
+  for (const r of new AssistantService(store).requests().filter((r) => r.status === 'pending'))
+    new AssistantService(store).applyRequest(r.id);
+}
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { openDatabase } from '../src/db';
 import { Store } from '../src/lib/store';
@@ -96,6 +101,7 @@ describe('optional post-CSV import context', () => {
     finish(id, result, 'On our trip, split equally with @alex.', false, '2026-01-10', '2026-01-10');
     store.enqueue('process', { ids: result.ids });
     await executeJob(store, claimJob(store)!);
+    confirmPrepared(store);
     const trip = store.transaction(result.items.find((item) => item.date === '2026-01-10')!.id);
     const other = store.transaction(result.items.find((item) => item.date === '2026-02-01')!.id);
     expect(trip).toMatchObject({ state: 'ready', proposal: { source: 'instruction' } });
@@ -114,6 +120,7 @@ describe('optional post-CSV import context', () => {
     expect(store.transaction(result.ids[0]).notes).toHaveLength(1);
     expect(() => finish(id, result, 'Personal expense.', true)).toThrow(/already completed/);
     await executeJob(store, claimJob(store)!);
+    confirmPrepared(store);
     expect(store.transaction(result.ids[0]).state).toBe('ready');
     expect(store.transaction(result.ids[0]).notes[0].source).toBe('import');
     expect(finish(id, result, 'Split equally with @alex.', true).jobId).toBe(first.jobId);

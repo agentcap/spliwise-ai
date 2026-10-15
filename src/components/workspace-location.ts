@@ -10,7 +10,16 @@ export type WorkspaceLocation = {
   trip: string;
   page: number;
 };
-const views = ['overview', 'review', 'finalized', 'people', 'rules', 'imports', 'trips'];
+const views = [
+  'assistant',
+  'overview',
+  'review',
+  'finalized',
+  'people',
+  'rules',
+  'imports',
+  'trips',
+];
 export function normalizeLocation(input: Partial<WorkspaceLocation>): WorkspaceLocation {
   const date = (s: unknown) =>
     typeof s === 'string' &&
@@ -20,7 +29,7 @@ export function normalizeLocation(input: Partial<WorkspaceLocation>): WorkspaceL
       : '';
   const text = (s: unknown) => (typeof s === 'string' ? s.slice(0, 200) : '');
   return {
-    view: views.includes(input.view || '') ? input.view! : 'overview',
+    view: views.includes(input.view || '') ? input.view! : 'assistant',
     from: date(input.from),
     to: date(input.to),
     search: text(input.search),
@@ -51,7 +60,7 @@ export function useWorkspaceLocation(
     const read = () => {
       const q = new URLSearchParams(window.location.search);
       const next = normalizeLocation({
-        view: q.get('view') || 'overview',
+        view: q.get('view') || 'assistant',
         from: q.get('from') || '',
         to: q.get('to') || '',
         search: q.get('search') || '',

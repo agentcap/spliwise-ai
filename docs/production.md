@@ -138,6 +138,12 @@ For upgrades:
 
 For a suspected secret leak, revoke the key, replace the server secret, restart, review provider usage and preserve redacted audit evidence. For a stuck queue, check worker/disk/backup metrics before retrying. Failed jobs keep completed batches; review those batches before retry or Undo.
 
+## Assistant permissions
+
+The Assistant home is the main interface. Agent runs can automatically create/update trips, active allocation rules, scoped user facts, people, templates and merchant names. Successful changes have local audit receipts and persistent Undo. Rule/trip edits do not move existing transactions or rewrite finalized allocations. Agent-generated split changes, trip assignments, manual expenses and repayments remain durable confirmation cards until a signed-in user explicitly applies them. Final split approval is a separate user action available in chat. Record-version checks and transactional writes protect stale or repeated clicks; no agent tool can apply cards, finalize, reopen expenses or execute repayments.
+
+Scoped user facts, automatic-change receipts and pending cards are included in full workspace exports and encrypted backups. They remain private to the signed-in ledger. Statement rows are untrusted input; facts need provenance from user messages or saved user instructions.
+
 ## Verification status and release gate
 
 The compiled production smoke test also runs natively in WSL and checks sign-in protection, CSRF, CSP/security headers and worker readiness. Luna live regressions and metered streaming were verified with synthetic data.

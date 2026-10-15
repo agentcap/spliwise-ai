@@ -1,3 +1,8 @@
+import { AssistantService } from '../src/lib/assistant-service';
+function confirmPrepared(store: Store) {
+  for (const r of new AssistantService(store).requests().filter((r) => r.status === 'pending'))
+    new AssistantService(store).applyRequest(r.id);
+}
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -319,8 +324,9 @@ describe('durable jobs and mocked agent', () => {
     applyStep(store, id, 0, plan, 1, 100);
     expect(store.transaction(tx.id).version).toBe(version);
     await executeJob(store, store.job(job.id));
+    confirmPrepared(store);
     expect(store.job(id).status).toBe('completed');
-    store.review([{ id: tx.id, version }], 'approve');
+    store.review([store.transaction(tx.id)], 'approve');
     expect(await askAgent(store, 'Split equally with @alex', [tx.id])).toMatchObject({
       updates: [],
     });
@@ -442,6 +448,7 @@ describe('quick instructions and durable transaction context', () => {
     expect(store.snapshot().messages[0].transactionIds).toEqual([tx.id]);
     expect(store.snapshot().dashboard.totalOutstandingCents).toBe(0);
     await executeJob(store, claimJob(store)!);
+    confirmPrepared(store);
     const ready = store.transaction(tx.id);
     expect(ready.state).toBe('ready');
     expect(ready.proposal?.splits.map((s) => s.personId).sort()).toEqual(
@@ -513,6 +520,7 @@ describe('quick instructions and durable transaction context', () => {
     applyStep(store, id, 0, plan, 1, 100);
     applyStep(store, id, 0, plan, 1, 100);
     expect(store.transaction(tx.id).notes).toHaveLength(2);
+    confirmPrepared(store);
     const ready = store.transaction(tx.id);
     store.review([{ id: ready.id, version: ready.version }], 'approve');
     expect(() =>
@@ -537,12 +545,14 @@ describe('quick instructions and durable transaction context', () => {
     const tx = ingest(csv(row()))[0];
     store.instruct([{ id: tx.id, version: tx.version }], 'This charge was for our weekend trip.');
     await executeJob(store, claimJob(store)!);
+    confirmPrepared(store);
     const fresh = store.transaction(tx.id);
     expect(fresh.state).toBe('inbox');
     expect(fresh.attention).toContain('Who');
     expect(fresh.notes[0].text).toContain('weekend trip');
     store.instruct([{ id: fresh.id, version: fresh.version }], 'My personal expense.');
     await executeJob(store, claimJob(store)!);
+    confirmPrepared(store);
     expect(store.transaction(tx.id).state).toBe('ready');
     expect(store.transaction(tx.id).notes).toHaveLength(2);
   });
@@ -556,7 +566,7 @@ it('keeps chat turns in insertion order when their timestamps match', () => {
 });
 
 describe('rule approval inside chat', () => {
-  it('links rule proposals to their originating conversation across restart and undo', () => {
+  it('automatically activates chat rules with visible audit events across restart and undo', () => {
     const id = store.enqueue('chat', { text: 'Propose a rule for coffee.' });
     applyStep(
       store,
@@ -579,15 +589,15 @@ describe('rule approval inside chat', () => {
       1,
       100,
     );
-    expect(store.ruleChanges()[0].jobId).toBe(id);
+    expect(new AssistantService(store).events()[0].jobId).toBe(id);
     store.db.close();
     store = new Store(openDatabase(join(dir, 'test.sqlite')));
     const change = store.ruleChanges()[0];
-    expect(change.jobId).toBe(id);
-    store.reviewRuleAndProcess(change.id, true);
-    expect(store.ruleChanges()[0]).toMatchObject({ jobId: id, status: 'approved' });
+    expect(change.status).toBe('auto-applied');
+    expect(store.rules().filter((r) => r.active)).toHaveLength(1);
     store.undo();
-    expect(store.ruleChanges()[0]).toMatchObject({ jobId: id, status: 'proposed' });
+    expect(store.rules()).toHaveLength(0);
+    expect(new AssistantService(store).events()[0].undoneAt).toBeTruthy();
   });
 
   it('can activate and queue only matching Inbox expenses atomically, leaving finalization manual', async () => {
@@ -611,6 +621,7 @@ describe('rule approval inside chat', () => {
     expect(result.processed).toBe(1);
     expect(store.job(result.jobId!).payload.ids).toEqual([coffee.id]);
     await executeJob(store, claimJob(store)!);
+    confirmPrepared(store);
     expect(store.transaction(coffee.id).state).toBe('ready');
     expect(store.transaction(other.id).state).toBe('inbox');
     expect(store.transaction(final.id).state).toBe('finalized');

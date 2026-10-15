@@ -2,6 +2,8 @@ import { openDatabase } from '../src/db';
 import { Store } from '../src/lib/store';
 import { usageSummary } from '../src/lib/usage';
 import { askAgent } from '../src/lib/agent';
+import { applyStep } from '../src/lib/jobs';
+import { AssistantService } from '../src/lib/assistant-service';
 if (!process.env.OPENAI_API_KEY) {
   console.log('SKIP: Set OPENAI_API_KEY to run the opt-in live smoke test.');
   process.exit(0);
@@ -17,7 +19,7 @@ const preview = store.preview(
 const { ids } = store.confirmImport(preview.id, false);
 const instruction =
   'Split the selected expense equally between @me and @synthetic_alex. This was lunch during our synthetic hiking trip.';
-store.instruct(
+const jobId = store.instruct(
   ids.map((id) => ({ id, version: store.transaction(id).version })),
   instruction,
 );
@@ -28,7 +30,11 @@ const result = await askAgent(store, instruction, ids, AbortSignal.timeout(90000
 if (!result.updates.length || result.updates[0].proposal?.splits.length !== 2)
   throw new Error('Expected a two-person split.');
 if (!streamedText) throw new Error('Expected streamed reply text.');
-store.saveProposals(result.updates, 'agent');
+applyStep(store, jobId, 0, result, 1, 100);
+if (store.transaction(ids[0]).state !== 'inbox')
+  throw new Error('Transaction moved without user confirmation.');
+for (const r of new AssistantService(store).requests().filter((r) => r.status === 'pending'))
+  new AssistantService(store).applyRequest(r.id);
 if (
   store.transaction(ids[0]).state !== 'ready' ||
   !store.transaction(ids[0]).notes.some((n) => n.text.includes('hiking trip'))

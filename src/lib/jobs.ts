@@ -6,6 +6,8 @@ import { askAgent, type AgentPlan } from './agent';
 import { ruleProposal } from './rules';
 import type { AgentJob } from './types';
 import { invariant } from './errors';
+import { AssistantService, trustedUserText } from './assistant-service';
+import { randomUUID as operationId } from 'node:crypto';
 const timestamp = () => new Date().toISOString();
 export function claimJob(store: Store): AgentJob | undefined {
   return store.db
@@ -65,20 +67,103 @@ export function applyStep(
         return t.state !== 'finalized' && t.version === u.version;
       });
       const skipped = plan.updates.length - updates.length;
-      if (updates.length) store.saveProposals(updates, 'agent', jobId + ':' + cursor + ':splits');
-      plan.rules.forEach((r, i) =>
-        store.proposeRule(
-          r.title,
-          r.definition,
-          r.ruleId,
-          'agent',
-          jobId + ':' + cursor + ':rule:' + i,
-        ),
+
+      const assistant = new AssistantService(store);
+      const operations = [
+        ...(plan.organization || []),
+        ...plan.rules.map((r) => ({
+          kind: 'rule' as const,
+          action: 'save' as const,
+          id: r.ruleId || operationId(),
+          version: r.ruleId
+            ? (r.baseVersion ?? store.rules().find((x) => x.id === r.ruleId)?.version ?? null)
+            : null,
+          title: r.title,
+          definition: r.definition,
+        })),
+      ];
+      invariant(operations.length <= 50, 'Too many workspace changes in one batch.');
+      const sourceText = trustedUserText(
+        store,
+        job.payload.text || '',
+        job.kind === 'process' ? job.payload.ids?.slice(cursor, cursor + 20) : job.payload.ids,
       );
+      operations.forEach((op, i) =>
+        assistant.applyOperation(op, jobId, cursor * 100 + i, sourceText),
+      );
+      const proposals = [];
+      for (const update of updates) {
+        let current = store.transaction(update.id);
+        const changed =
+          current.state !== update.state ||
+          JSON.stringify(current.proposal) !== JSON.stringify(update.proposal);
+        // Additional facts and focused questions are visible metadata; never apply a split/state as a side effect.
+        if (
+          update.context ||
+          (!changed && update.attention !== undefined && update.attention !== current.attention)
+        ) {
+          store.saveProposals(
+            [
+              {
+                id: current.id,
+                version: current.version,
+                state: current.state as 'inbox' | 'ready',
+                proposal: current.proposal,
+                attention: changed ? current.attention : update.attention,
+                context: update.context,
+              },
+            ],
+            'agent',
+            jobId + ':' + cursor + ':context:' + current.id,
+          );
+          current = store.transaction(update.id);
+        }
+        if (changed)
+          proposals.push({
+            ...update,
+            version: current.version,
+            context: undefined,
+            transaction: {
+              description: current.description,
+              date: current.date,
+              amountCents: current.amountCents,
+            },
+          });
+      }
+      if (proposals.length)
+        assistant.queue(
+          jobId,
+          'splits',
+          proposals,
+          'Apply ' + proposals.length + ' proposed split' + (proposals.length === 1 ? '' : 's'),
+        );
+      invariant((plan.requests?.length || 0) <= 20, 'Too many transaction action cards.');
+      for (const request of plan.requests || []) {
+        assistant.validateExpenseAction(
+          request,
+          job.payload.ids ? new Set(job.payload.ids) : undefined,
+        );
+        assistant.queue(
+          jobId,
+          request.kind,
+          request,
+          request.kind === 'assignment'
+            ? 'Assign ' + request.items.length + ' expenses to trip'
+            : request.kind === 'expense'
+              ? 'Add expense: ' + request.description
+              : 'Record repayment',
+        );
+      }
+
       if (plan.message)
         store.addMessage(
           'assistant',
           plan.message +
+            (proposals.length
+              ? '\n\n' +
+                proposals.length +
+                ' transaction change(s) await your confirmation below. No expenses have moved.'
+              : '') +
             (skipped ? ' ' + skipped + ' changed transaction(s) were left untouched.' : ''),
           jobId,
           job.payload.ids,
@@ -213,7 +298,7 @@ export async function executeJob(store: Store, job: AgentJob, signal?: AbortSign
         ids.length +
         ' transactions. ' +
         plan.updates.filter((u) => u.state === 'ready').length +
-        ' proposals ready in this batch.';
+        ' split proposals prepared in this batch. Apply the confirmation card to move them into review.';
       if (signal?.aborted) throw new Error('Job interrupted.');
       applyStep(
         store,

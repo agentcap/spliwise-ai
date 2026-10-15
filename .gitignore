@@ -19,3 +19,5 @@ tsconfig.tsbuildinfo
 
 secrets/
 .restore-drills/
+
+.next-production-check/

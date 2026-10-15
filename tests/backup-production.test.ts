@@ -1,3 +1,4 @@
+import { AssistantService } from '../src/lib/assistant-service';
 import { test, expect } from 'vitest';
 import {
   mkdtempSync,
@@ -97,6 +98,40 @@ test('full backup restore verifies each database, revokes sessions and reapplies
         'application/pdf',
         Buffer.from('%PDF-1.4\nSynthetic receipt\n%%EOF'),
       );
+      const assistant = new AssistantService(store),
+        quote = 'Synthetic recovered household context';
+      assistant.applyOperation(
+        {
+          kind: 'context',
+          action: 'save',
+          id: randomUUID(),
+          version: null,
+          title: 'Recovered context',
+          text: quote,
+          quote,
+          personId: person.id,
+          tripId: trip.id,
+          from: null,
+          to: null,
+        },
+        'recovered-job',
+        0,
+        quote,
+      );
+      assistant.queue(
+        'recovered-job',
+        'expense',
+        {
+          kind: 'expense',
+          description: 'Recovered draft',
+          date: '2026-01-01',
+          amountCents: 100,
+          category: 'Travel',
+          note: '',
+          tripId: trip.id,
+        },
+        'Recovered draft',
+      );
       db.close();
     }
     control
@@ -153,6 +188,12 @@ test('full backup restore verifies each database, revokes sessions and reapplies
         .download(recovered.attachments(restoredStore.transactions()[0].id)[0].id)
         .text(),
     ).toContain('Synthetic receipt');
+    const recoveredAssistant = new AssistantService(restoredStore);
+    expect(recoveredAssistant.contexts()[0].text).toBe('Synthetic recovered household context');
+    expect(recoveredAssistant.requests()[0].status).toBe('pending');
+    expect(recoveredAssistant.events()[0].kind).toBe('context');
+    expect(restoredStore.undo()).toContain('Remembered');
+    expect(recoveredAssistant.contexts()).toHaveLength(0);
     expect(restoredStore.undo()).toContain('receipt');
     expect(recovered.attachments(restoredStore.transactions()[0].id)).toHaveLength(0);
     restoredStore.undo();

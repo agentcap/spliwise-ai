@@ -11,6 +11,9 @@ import {
   Sparkles,
   X,
 } from 'lucide-react';
+import { AssistantChangeCard, AssistantRequestCard } from './assistant-cards';
+import type { AssistantEvent, AssistantRequest } from '@/lib/assistant-contracts';
+import type { Snapshot } from '@/lib/types';
 import type {
   Account,
   AgentJob,
@@ -45,6 +48,13 @@ function RichReply({ text }: { text: string }) {
 }
 
 export default function ChatPanel({
+  variant = 'panel',
+  events = [],
+  requests = [],
+  batches = [],
+  onChanged,
+  onOpen,
+  onShortcut,
   scopeLabel,
   scopeControl,
   onReviewTransactions,
@@ -67,6 +77,13 @@ export default function ChatPanel({
   onCancel,
   onRetry,
 }: {
+  variant?: 'panel' | 'workspace';
+  events?: AssistantEvent[];
+  requests?: AssistantRequest[];
+  batches?: Snapshot['batches'];
+  onChanged: () => Promise<void>;
+  onOpen: (kind: string, id: string) => void;
+  onShortcut: (kind: string) => void;
   scopeLabel: string;
   scopeControl: React.ReactNode;
   onReviewTransactions: () => void;
@@ -125,6 +142,19 @@ export default function ChatPanel({
         people={people}
         accounts={accounts}
         onReview={onReviewRule}
+      />
+    );
+  }
+  function requestCard(request: AssistantRequest) {
+    return (
+      <AssistantRequestCard
+        key={request.id}
+        request={request}
+        people={people}
+        transactions={transactions}
+        batches={batches}
+        onChanged={onChanged}
+        onReview={onReviewTransactions}
       />
     );
   }
@@ -192,20 +222,27 @@ export default function ChatPanel({
     );
   }
   return (
-    <aside className="chat-panel" aria-label="Split assistant">
+    <aside
+      className={'chat-panel ' + (variant === 'workspace' ? 'chat-workspace' : '')}
+      aria-label="Split assistant"
+    >
       <header>
         <span className="stat-icon">
           <Sparkles size={18} />
         </span>
         <div className="grow">
-          <h3>Your split assistant</h3>
+          <h3>Your workspace assistant</h3>
           <small>
             {active.length
               ? active.length + ' request' + (active.length > 1 ? 's' : '') + ' in progress'
-              : 'A little context. A clearer split.'}
+              : 'Tell me what you need. I’ll take care of the setup.'}
           </small>
         </div>
-        <button className="icon-button" aria-label="Close chat" onClick={onClose}>
+        <button
+          className="icon-button"
+          aria-label={variant === 'workspace' ? 'Open overview' : 'Close chat'}
+          onClick={onClose}
+        >
           <X size={18} />
         </button>
       </header>
@@ -230,20 +267,31 @@ export default function ChatPanel({
         {!visible.length && (
           <div className="chat-welcome">
             <Sparkles />
-            <h3>What should we split?</h3>
-            <p>
-              Select expenses to focus the conversation, or describe the merchant you have in mind.
-            </p>
+            <h3>What can I take care of?</h3>
+            <p>Plan a trip, describe a split, remember a preference, or ask who still owes you.</p>
             <button onClick={() => onDraftChange('Split the selected expenses equally with ')}>
               Split selected expenses
             </button>
             <button
               onClick={() =>
-                onDraftChange('Propose a rule for office lunches as my personal expense.')
+                onDraftChange('Remember that office lunches are my personal expenses.')
               }
             >
-              Remember an office-lunch rule
+              Remember a preference
             </button>
+            <button onClick={() => onDraftChange('I went on a trip to ')}>
+              Set up a trip from context
+            </button>
+            <button onClick={() => onDraftChange('Who owes me money, and what is still unpaid?')}>
+              Show who owes me
+            </button>
+          </div>
+        )}
+        {variant === 'workspace' && (
+          <div className="chat-shortcuts">
+            <button onClick={() => onShortcut('import')}>Import statement</button>
+            <button onClick={() => onShortcut('expense')}>Add expense</button>
+            <button onClick={onReviewTransactions}>Review expenses</button>
           </div>
         )}
         {visible.map((m, i) => {
@@ -295,13 +343,27 @@ export default function ChatPanel({
                   job?.status === 'completed' &&
                   job.payload.ids?.length && (
                     <div className="chat-result-card">
-                      <span>Changes saved · review before finalizing</span>
+                      <span>
+                        {requests.some((r) => r.jobId === m.jobId && r.status === 'pending')
+                          ? 'Review the confirmation card below'
+                          : 'Request complete · final approval stays with you'}
+                      </span>
                       <button className="quiet-button" onClick={onReviewTransactions}>
                         Review proposals
                       </button>
                     </div>
                   )}
               </article>
+              {m.role === 'assistant' && m.jobId && (
+                <div className="chat-saved-changes">
+                  {events
+                    .filter((e) => e.jobId === m.jobId)
+                    .map((event) => (
+                      <AssistantChangeCard key={event.id} event={event} onOpen={onOpen} />
+                    ))}
+                  {requests.filter((r) => r.jobId === m.jobId).map(requestCard)}
+                </div>
+              )}
               {m.role === 'assistant' &&
                 m.jobId &&
                 !visible
@@ -312,13 +374,22 @@ export default function ChatPanel({
             </div>
           );
         })}
-        {otherPending.length > 0 && (
-          <section className="chat-pending-rules" aria-label="Other rule proposals">
-            <h4>
-              Rules awaiting your review <span>{otherPending.length}</span>
-            </h4>
-            {otherPending.map(ruleCard)}
+        {requests.some((r) => r.status === 'pending' && !attachedJobs.has(r.jobId)) && (
+          <section className="chat-pending-actions" aria-label="Pending transaction confirmations">
+            <h4>Waiting for your confirmation</h4>
+            {requests
+              .filter((r) => r.status === 'pending' && !attachedJobs.has(r.jobId))
+              .map(requestCard)}
           </section>
+        )}
+        {otherPending.length > 0 && (
+          <details className="chat-pending-rules">
+            <summary>Previous rule drafts · {otherPending.length}</summary>
+            <p className="muted">
+              Imported or previously saved drafts. New assistant rules are saved automatically.
+            </p>
+            {otherPending.map(ruleCard)}
+          </details>
         )}
       </div>
       {unread && (
@@ -346,7 +417,7 @@ export default function ChatPanel({
           onChange={onDraftChange}
           people={people}
           label="Message the agent"
-          placeholder="Ask about an expense, add context, or describe a split…"
+          placeholder="Tell me about a trip, a split, or what you’d like to do…"
           onSubmit={submit}
           disabled={sending || !configured}
         />
@@ -367,7 +438,7 @@ export default function ChatPanel({
           </button>
         </div>
         <p className="chat-approval-note">
-          Splits wait for your approval. Reusable rules need review.
+          I manage rules and context. You confirm transaction changes and final splits.
         </p>
       </div>
     </aside>

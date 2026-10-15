@@ -2,6 +2,7 @@ import { randomUUID, createHash } from 'node:crypto';
 import type { Sqlite } from '../db';
 import { invariant, AppError } from './errors';
 import { Features } from './features';
+import { AssistantService } from './assistant-service';
 import { config } from './config';
 import { queryLedger, type LedgerQuery } from './ledger-query';
 import { isoDate, linkedRefundShares, cents, splitAmount } from './money';
@@ -43,7 +44,9 @@ type Undo = {
     | 'trips'
     | 'split_templates'
     | 'merchant_aliases'
-    | 'attachments';
+    | 'attachments'
+    | 'user_context'
+    | 'people';
   id: string;
   before: Raw | null;
 };
@@ -230,16 +233,43 @@ export class Store {
               'split_templates',
               'merchant_aliases',
               'attachments',
+              'user_context',
+              'people',
             ].includes(entry.table),
             'Invalid undo record.',
           );
-          if (!entry.before)
+          if (!entry.before) {
+            if (entry.table === 'people') {
+              const used =
+                this.transactions().some((t) =>
+                  t.proposal?.splits.some((p) => p.personId === entry.id),
+                ) ||
+                this.rules().some(
+                  (r) => r.active && r.definition.split.participants.includes(entry.id),
+                ) ||
+                new Features(this).trips().some((t) => t.participants.includes(entry.id)) ||
+                new Features(this)
+                  .templates()
+                  .some((t) => t.spec.participants.includes(entry.id)) ||
+                this.one('SELECT id FROM repayments WHERE personId=? LIMIT 1', entry.id) ||
+                this.one('SELECT id FROM user_context WHERE personId=? LIMIT 1', entry.id);
+              invariant(
+                !used,
+                'This person is used by expenses or saved context and cannot be undone.',
+              );
+            }
             this.db.prepare('DELETE FROM ' + entry.table + ' WHERE id=?').run(entry.id);
-          else {
+          } else {
             const cols = Object.keys(entry.before).filter((c) => c !== 'id');
             const values = cols.map((c) => entry.before![c]);
             if (
-              ['transactions', 'trips', 'split_templates', 'merchant_aliases'].includes(entry.table)
+              [
+                'transactions',
+                'trips',
+                'split_templates',
+                'merchant_aliases',
+                'user_context',
+              ].includes(entry.table)
             ) {
               const index = cols.indexOf('version');
               const current = this.one<{ version: number }>(
@@ -1518,6 +1548,9 @@ export class Store {
       repayments = this.all<Repayment>('SELECT * FROM repayments ORDER BY date DESC,id');
     return {
       ...new Features(this).snapshot(),
+      userContext: new AssistantService(this).contexts(),
+      assistantEvents: new AssistantService(this).events(),
+      assistantRequests: new AssistantService(this).requests(),
       people,
       pagination: ledger?.pagination,
       workspace: { id: this.workspaceId, production: config().production, ...this.settings() },

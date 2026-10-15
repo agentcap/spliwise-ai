@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { Features } from './features';
+import { AssistantService } from './assistant-service';
 import type { Store } from './store';
 import { boundedJson, boundedForm } from './security';
 import { invariant } from './errors';
@@ -45,6 +46,29 @@ export async function featureRequest(
         },
       );
     return;
+  }
+  if (
+    parts[0] === 'assistant-requests' &&
+    parts.length === 3 &&
+    ['apply', 'dismiss', 'finalize'].includes(parts[2])
+  ) {
+    await boundedJson(req, 1000);
+    const assistant = new AssistantService(store);
+    if (parts[2] === 'apply') return Response.json(assistant.applyRequest(parts[1]));
+    if (parts[2] === 'finalize') return Response.json(assistant.finalizeRequest(parts[1]));
+    assistant.dismissRequest(parts[1]);
+    return Response.json({ ok: true });
+  }
+  if (key === 'context/delete') {
+    const a = z
+      .object({ id: z.string(), version: z.number().int().positive() })
+      .parse(await boundedJson(req, 1000));
+    const context = new AssistantService(store).contexts().find((c) => c.id === a.id);
+    invariant(context?.version === a.version, 'Context changed. Refresh.', 409);
+    store.batch('user', 'Forget saved context', [{ table: 'user_context', id: a.id }], () =>
+      store.db.prepare('DELETE FROM user_context WHERE id=?').run(a.id),
+    );
+    return Response.json({ ok: true });
   }
   if (key === 'attachments/upload') {
     const form = await boundedForm(req),

@@ -215,3 +215,47 @@ export const attachments = sqliteTable(
   },
   (t) => [index('attachment_transaction').on(t.transactionId)],
 );
+
+export const userContext = sqliteTable('user_context', {
+  id: text().primaryKey(),
+  title: text().notNull(),
+  text: text().notNull(),
+  quote: text().notNull(),
+  personId: text().references(() => people.id),
+  tripId: text().references(() => trips.id),
+  from: text(),
+  to: text(),
+  version: integer().notNull().default(1),
+  createdAt: text().notNull(),
+  updatedAt: text().notNull(),
+});
+export const assistantEvents = sqliteTable(
+  'assistant_events',
+  {
+    id: text().primaryKey(),
+    jobId: text().notNull(),
+    kind: text().notNull(),
+    targetId: text().notNull(),
+    title: text().notNull(),
+    detail: text().notNull(),
+    batchId: text()
+      .notNull()
+      .references(() => actionBatches.id),
+    createdAt: text().notNull(),
+  },
+  (t) => [index('assistant_event_job').on(t.jobId)],
+);
+export const assistantRequests = sqliteTable(
+  'assistant_requests',
+  {
+    id: text().primaryKey(),
+    jobId: text().notNull(),
+    kind: text().notNull(),
+    payload: text().notNull(),
+    title: text().notNull(),
+    status: text().notNull().default('pending'),
+    createdAt: text().notNull(),
+    batchId: text(),
+  },
+  (t) => [index('assistant_request_status').on(t.status)],
+);

@@ -1,4 +1,34 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
+async function confirmSplits(page: Page, close = true) {
+  const panel = page.getByRole('complementary', { name: 'Split assistant' });
+  await expect(panel).toBeVisible({ timeout: 20000 });
+  await expect
+    .poll(
+      async () => {
+        const s = (await (await page.request.get('/api/state')).json()) as Snapshot;
+        return s.jobs.filter((j) => j.status === 'queued' || j.status === 'running').length;
+      },
+      { timeout: 20000 },
+    )
+    .toBe(0);
+  await expect(
+    panel.getByRole('button', { name: 'Confirm split changes', exact: true }).first(),
+  ).toBeVisible({ timeout: 20000 });
+  while (await panel.getByRole('button', { name: 'Confirm split changes', exact: true }).count()) {
+    const button = panel
+      .getByRole('button', { name: 'Confirm split changes', exact: true })
+      .first();
+    const count = await panel
+      .getByRole('button', { name: 'Confirm split changes', exact: true })
+      .count();
+    await button.click();
+    await expect
+      .poll(() => panel.getByRole('button', { name: 'Confirm split changes', exact: true }).count())
+      .toBeLessThan(count);
+  }
+  if (close) await page.getByRole('button', { name: 'Close chat', exact: true }).click();
+}
+
 import { resolve } from 'node:path';
 import { readFile } from 'node:fs/promises';
 import type { TransferBundle } from '../../src/lib/data-transfer';
@@ -9,7 +39,7 @@ test('upload, duplicate preview, rule review, bulk finalize, repayment, date fil
 }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto('/');
+  await page.goto('/?view=overview');
   await expect(page.getByRole('heading', { name: 'Overview', exact: true })).toBeVisible();
   await page.screenshot({ path: 'test-results/empty-overview.png', fullPage: true });
   await page.getByRole('button', { name: 'Add your first person' }).click();
@@ -54,6 +84,7 @@ test('upload, duplicate preview, rule review, bulk finalize, repayment, date fil
   await page.getByRole('button', { name: 'Approve rule', exact: true }).click();
   await page.getByRole('button', { name: 'Review workspace', exact: false }).click();
   await page.getByRole('button', { name: 'Process Inbox', exact: true }).click();
+  await confirmSplits(page);
   await expect(page.getByRole('button', { name: 'Approve 2', exact: true })).toBeVisible({
     timeout: 20000,
   });
@@ -97,6 +128,7 @@ test('upload, duplicate preview, rule review, bulk finalize, repayment, date fil
   await dialog.getByRole('option').click();
   await dialog.getByRole('button', { name: 'Save instruction' }).click();
   await page.getByRole('button', { name: 'Generate revised splits' }).click();
+  await confirmSplits(page);
   const revised = page
     .locator('.transaction-card')
     .filter({ has: page.getByRole('heading', { name: 'GROCERY STORE', exact: true }) });
@@ -149,7 +181,7 @@ test('quick Enter instructions, mention selection, saved context, chat formattin
   ).json();
   expect(imported.ids).toHaveLength(2);
   const baseline = (await (await request.get('/api/state')).json()) as Snapshot;
-  await page.goto('/');
+  await page.goto('/?view=overview');
   await page.getByRole('button', { name: 'Review workspace', exact: false }).click();
   await page.getByLabel('Search transactions').fill('QUICK DINNER');
   const card = page
@@ -164,6 +196,7 @@ test('quick Enter instructions, mention selection, saved context, chat formattin
     baseline.jobs.length,
   );
   await input.press('Enter');
+  await confirmSplits(page);
   await expect(card.getByRole('button', { name: 'Approve', exact: true })).toBeVisible({
     timeout: 20000,
   });
@@ -203,6 +236,7 @@ test('quick Enter instructions, mention selection, saved context, chat formattin
   await expect(panel.locator('.chat-markdown strong').last()).toHaveText('1 split', {
     timeout: 20000,
   });
+  await confirmSplits(page, false);
   await expect
     .poll(
       async () => {
@@ -229,19 +263,15 @@ test('quick Enter instructions, mention selection, saved context, chat formattin
   expect(errors).toEqual([]);
 });
 
-test('approve a chat rule and process matching Inbox expenses without leaving review', async ({
+test('chat manages rules automatically while transaction moves wait for confirmation', async ({
   page,
   request,
 }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  expect(
-    (
-      await request.post('/api/people', {
-        data: { name: 'Casey', handle: 'casey', relation: 'Friend' },
-      })
-    ).ok(),
-  ).toBe(true);
+  await request.post('/api/people', {
+    data: { name: 'Casey', handle: 'casey', relation: 'Friend' },
+  });
   const preview = await (
     await request.post('/api/imports/preview', {
       multipart: {
@@ -258,17 +288,11 @@ test('approve a chat rule and process matching Inbox expenses without leaving re
   ).json();
   const imported = await (
     await request.post('/api/imports/confirm', {
-      data: {
-        id: preview.id,
-        acknowledgeSkips: false,
-        keepRows: [],
-        skipInvalid: false,
-      },
+      data: { id: preview.id, acknowledgeSkips: false, keepRows: [], skipInvalid: false },
     })
   ).json();
   const before = (await (await request.get('/api/state')).json()) as Snapshot;
-  await page.goto('/');
-  await page.getByRole('button', { name: 'Review workspace', exact: false }).click();
+  await page.goto('/?view=review');
   await page.getByLabel('Search transactions').fill('CHAT RULE LUNCH');
   await page.getByLabel('Select CHAT RULE LUNCH', { exact: true }).first().check();
   await page.getByRole('button', { name: 'Ask AI', exact: true }).click();
@@ -277,54 +301,31 @@ test('approve a chat rule and process matching Inbox expenses without leaving re
     .getByLabel('Message the agent')
     .fill('Propose a reusable rule: split CHAT RULE LUNCH equally with @casey.');
   await panel.getByLabel('Message the agent').press('Enter');
-  const card = panel
-    .locator('.chat-rule-card.proposed')
-    .filter({ hasText: 'CHAT RULE LUNCH split rule' });
-  await expect(card.getByRole('button', { name: 'Approve rule', exact: true })).toBeVisible({
-    timeout: 20000,
-  });
   await expect(
-    card.getByText('Equal split: Me, Casey · Food & Drink', { exact: true }),
-  ).toBeVisible();
+    panel
+      .locator('.assistant-change-card')
+      .filter({ hasText: 'Remembered rule: CHAT RULE LUNCH split rule' }),
+  ).toBeVisible({ timeout: 20000 });
+  expect(await panel.getByRole('button', { name: 'Approve rule', exact: true }).count()).toBe(0);
   let state = (await (await request.get('/api/state')).json()) as Snapshot;
-  expect(state.rules).toHaveLength(before.rules.length);
-  const change = state.ruleChanges.find((c) => c.title === 'CHAT RULE LUNCH split rule')!;
-  expect(change.jobId).toBe(state.messages.findLast((m) => m.role === 'user')!.jobId);
-  await card.getByRole('checkbox', { name: 'Also process 2 matching Inbox expenses' }).check();
-  await card.getByRole('button', { name: 'Approve rule', exact: true }).click();
-  await expect(panel.getByText('Rule approved', { exact: true }).last()).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Review workspace', exact: true })).toBeVisible();
+  expect(state.rules.filter((r) => r.active)).toHaveLength(
+    before.rules.filter((r) => r.active).length + 1,
+  );
+  expect(
+    state.transactions.filter((t) => imported.ids.includes(t.id)).every((t) => t.state === 'inbox'),
+  ).toBe(true);
+  await page.getByRole('button', { name: 'Close chat' }).click();
+  await page.getByRole('button', { name: 'Process selected', exact: true }).click();
+  await confirmSplits(page);
   await expect
-    .poll(
-      async () => {
-        const snapshot = (await (await request.get('/api/state')).json()) as Snapshot;
-        return snapshot.transactions.filter(
-          (tx) => imported.ids.includes(tx.id) && tx.state === 'ready',
-        ).length;
-      },
-      { timeout: 20000 },
-    )
+    .poll(async () => {
+      const s = (await (await request.get('/api/state')).json()) as Snapshot;
+      return s.transactions.filter((t) => imported.ids.includes(t.id) && t.state === 'ready')
+        .length;
+    })
     .toBe(2);
   state = (await (await request.get('/api/state')).json()) as Snapshot;
   expect(state.dashboard.finalizedCount).toBe(before.dashboard.finalizedCount);
-  expect(state.rules).toHaveLength(before.rules.length + 1);
-  await panel
-    .getByLabel('Message the agent')
-    .fill('Propose a reusable rule: make the selected expenses my personal expense.');
-  await panel.getByLabel('Message the agent').press('Enter');
-  const rejectedCard = panel.locator('.chat-rule-card.proposed').last();
-  await expect(rejectedCard.getByRole('button', { name: 'Reject', exact: true })).toBeVisible({
-    timeout: 20000,
-  });
-  await rejectedCard.getByRole('button', { name: 'Reject', exact: true }).click();
-  await expect(panel.getByText('Rule rejected', { exact: true })).toBeVisible();
-  state = (await (await request.get('/api/state')).json()) as Snapshot;
-  expect(state.rules).toHaveLength(before.rules.length + 1);
-  await page.reload();
-  await page.getByRole('button', { name: 'Review workspace', exact: false }).click();
-  await page.getByRole('button', { name: 'Ask AI', exact: true }).click();
-  await expect(panel.getByText('Rule approved', { exact: true }).last()).toBeVisible();
-  await expect(panel.getByText('Rule rejected', { exact: true })).toBeVisible();
   expect(errors).toEqual([]);
 });
 
@@ -361,7 +362,7 @@ test('preview rule cleanup, merge merchant alternatives, delete and undo from th
     .filter((rule) => rule.title.startsWith('Cleanup '))
     .map((rule) => rule.id);
   const finalized = before.transactions.filter((tx) => tx.state === 'finalized');
-  await page.goto('/');
+  await page.goto('/?view=overview');
   await page.getByRole('button', { name: 'Rules & context', exact: false }).click();
   await page.getByRole('button', { name: 'Optimize rules', exact: true }).click();
   let dialog = page.getByRole('dialog');
@@ -468,7 +469,7 @@ test('download transactions and rules, preview duplicate skips, and import saved
   expect(
     (await request.post('/api/rules/review', { data: { id: seedRule.id, approve: true } })).ok(),
   ).toBe(true);
-  await page.goto('/');
+  await page.goto('/?view=overview');
   await page.getByRole('button', { name: 'Import / export', exact: true }).click();
   let dialog = page.getByRole('dialog');
   await expect(
@@ -614,7 +615,7 @@ test('ask for date-scoped CSV context, save with mentions, process later, skip d
   const person = await personResponse.json();
   const body =
     'Date,Description,Amount\n01/01/2026,AUTOPAY PAYMENT,-100.00\n01/10/2026,CSV CONTEXT MEAL,20.01\n01/11/2026,CSV CONTEXT COFFEE,11.50\n02/01/2026,CSV CONTEXT OTHER,8.00';
-  await page.goto('/');
+  await page.goto('/?view=overview');
   async function upload(content: string) {
     await page.getByRole('button', { name: 'Import statements', exact: true }).first().click();
     const dialog = page.getByRole('dialog');
@@ -667,6 +668,7 @@ test('ask for date-scoped CSV context, save with mentions, process later, skip d
   for (const description of ['CSV CONTEXT MEAL', 'CSV CONTEXT COFFEE'])
     await page.getByRole('checkbox', { name: 'Select ' + description, exact: true }).check();
   await page.getByRole('button', { name: 'Process selected', exact: true }).click();
+  await confirmSplits(page);
   await expect
     .poll(async () => {
       const current = (await (await request.get('/api/state')).json()) as Snapshot;
@@ -703,6 +705,7 @@ test('ask for date-scoped CSV context, save with mentions, process later, skip d
     .fill('Personal expense. A souvenir from the trip.');
   await dialog.getByRole('button', { name: 'Save context & process', exact: true }).click();
   await expect(dialog).not.toBeVisible();
+  await confirmSplits(page);
   await expect
     .poll(async () => {
       state = (await (await request.get('/api/state')).json()) as Snapshot;
@@ -723,7 +726,7 @@ test('settings persist privacy and time zone, add card accounts, download full d
 }) => {
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
-  await page.goto('/');
+  await page.goto('/?view=overview');
   await page.getByRole('button', { name: 'Workspace settings', exact: true }).click();
   const dialog = page.getByRole('dialog', { name: 'Workspace settings', exact: true });
   await expect(dialog.getByRole('heading', { name: 'Privacy & AI', exact: true })).toBeVisible();
@@ -828,6 +831,7 @@ test('trips and modern review support suggested assignments, manual cash, receip
   await dialog.getByRole('button', { name: 'Add to Inbox', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Review workspace', exact: true })).toBeVisible();
   await page.getByRole('button', { name: 'Process Inbox', exact: true }).click();
+  await confirmSplits(page);
   await expect
     .poll(async () => {
       const s = (await (await request.get('/api/state')).json()) as Snapshot;
@@ -845,13 +849,11 @@ test('trips and modern review support suggested assignments, manual cash, receip
   await page.getByLabel('Search transactions').fill('CASH MUSEUM');
   await page.getByRole('button', { name: 'View saved context', exact: true }).click();
   dialog = page.getByRole('dialog');
-  await dialog
-    .getByLabel('Attach receipt')
-    .setInputFiles({
-      name: 'museum.pdf',
-      mimeType: 'application/pdf',
-      buffer: Buffer.from('%PDF-1.4\nSynthetic museum receipt\n%%EOF'),
-    });
+  await dialog.getByLabel('Attach receipt').setInputFiles({
+    name: 'museum.pdf',
+    mimeType: 'application/pdf',
+    buffer: Buffer.from('%PDF-1.4\nSynthetic museum receipt\n%%EOF'),
+  });
   await expect(dialog.getByRole('link', { name: /museum.pdf/ })).toBeVisible();
   const tx = snapshot.transactions.find((t) => t.description === 'CASH MUSEUM')!;
   let files = await (await request.get('/api/transaction-files/' + tx.id)).json();
@@ -963,4 +965,103 @@ test('templates and saved views work with merchant aliases, refresh, Back, group
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: 'test-results/modern-review-mobile.png', fullPage: true });
   expect(errors).toEqual([]);
+});
+
+test('assistant home creates trips and remembers scoped user facts directly from chat', async ({
+  page,
+  request,
+}) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  await request.post('/api/people', {
+    data: { name: 'Sam Chat', handle: 'sam_chat', relation: 'Friend' },
+  });
+  await page.goto('/');
+  await expect(page.getByRole('heading', { name: 'Your AI workspace', exact: true })).toBeVisible();
+  const panel = page.getByRole('complementary', { name: 'Split assistant' });
+  await page.screenshot({ path: 'test-results/assistant-home-desktop.png', fullPage: true });
+  await panel
+    .getByLabel('Message the agent')
+    .fill(
+      'We went on a trip to Tahoe from 2029-01-01 to 2029-01-04 with @sam_chat. Split food equally.',
+    );
+  await panel.getByLabel('Message the agent').press('Enter');
+  const tripCard = panel
+    .locator('.assistant-change-card')
+    .filter({ hasText: 'Created trip: Tahoe trip' });
+  await expect(tripCard).toBeVisible({ timeout: 20000 });
+  let state = (await (await request.get('/api/state')).json()) as Snapshot;
+  const trip = state.trips!.find((t) => t.name === 'Tahoe trip')!;
+  expect(trip.participants).toHaveLength(2);
+  await tripCard.getByRole('button', { name: 'Open Created trip: Tahoe trip' }).click();
+  await expect(page.getByRole('heading', { name: 'Tahoe trip', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Assistant', exact: true }).click();
+  await panel.getByLabel('Message the agent').fill('Remember that @sam_chat is my roommate.');
+  await panel.getByLabel('Message the agent').press('Enter');
+  await expect(
+    panel.locator('.assistant-change-card').filter({ hasText: 'Remembered: About @sam_chat' }),
+  ).toBeVisible({ timeout: 20000 });
+  state = (await (await request.get('/api/state')).json()) as Snapshot;
+  expect(
+    state.userContext!.find(
+      (c) => c.personId === state.people.find((p) => p.handle === 'sam_chat')!.id,
+    )?.text,
+  ).toContain('roommate');
+  await page.reload();
+  await expect(
+    panel.locator('.assistant-change-card').filter({ hasText: 'Created trip: Tahoe trip' }),
+  ).toBeVisible();
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.screenshot({ path: 'test-results/assistant-home-mobile.png', fullPage: true });
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.getByRole('button', { name: 'Rules & context', exact: true }).click();
+  await expect(
+    page.getByRole('heading', { name: 'Saved user context', exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText('Remember that @sam_chat is my roommate.', { exact: true }).first(),
+  ).toBeVisible();
+  expect(errors).toEqual([]);
+});
+
+test('approve a generated split and finalize it directly in chat', async ({ page, request }) => {
+  const created = await (
+    await request.post('/api/transactions/manual', {
+      data: {
+        description: 'CHAT APPROVAL TICKETS',
+        date: '2029-03-01',
+        amountCents: 2000,
+        category: 'Travel',
+        note: '',
+        tripId: null,
+        requestId: crypto.randomUUID(),
+      },
+    })
+  ).json();
+  await page.goto('/?view=review');
+  await page.getByLabel('Search transactions').fill('CHAT APPROVAL TICKETS');
+  await page.getByLabel('Select CHAT APPROVAL TICKETS', { exact: true }).check();
+  await page.getByRole('button', { name: 'Ask AI', exact: true }).click();
+  const panel = page.getByRole('complementary', { name: 'Split assistant' });
+  await panel.getByLabel('Message the agent').fill('Personal expense. Museum on my solo day.');
+  await panel.getByLabel('Message the agent').press('Enter');
+  await expect(
+    panel.getByRole('button', { name: 'Confirm split changes', exact: true }).last(),
+  ).toBeVisible({ timeout: 20000 });
+  const before = (await (await request.get('/api/state')).json()) as Snapshot;
+  expect(before.transactions.find((t) => t.id === created.id)?.state).toBe('inbox');
+  await confirmSplits(page, false);
+  const card = panel
+    .locator('.assistant-request-card')
+    .filter({ hasText: 'CHAT APPROVAL TICKETS' })
+    .last();
+  await expect(card.getByRole('button', { name: 'Finalize 1 splits', exact: true })).toBeVisible();
+  await card.getByRole('button', { name: 'Finalize 1 splits', exact: true }).click();
+  await expect(card.getByText('Finalized', { exact: true })).toBeVisible();
+  expect(
+    ((await (await request.get('/api/state')).json()) as Snapshot).transactions.find(
+      (t) => t.id === created.id,
+    )?.state,
+  ).toBe('finalized');
+  await page.screenshot({ path: 'test-results/chat-approval-card.png', fullPage: true });
 });

@@ -1,3 +1,4 @@
+import type { UserContext, AssistantEvent, AssistantRequest } from './assistant-contracts';
 export type TransactionState = 'inbox' | 'ready' | 'finalized';
 export type Confidence = 'high' | 'medium' | 'low';
 export type Actor = 'user' | 'agent';
@@ -237,6 +238,9 @@ export interface Dashboard {
   months: { month: string; amountCents: number }[];
 }
 export interface Snapshot {
+  userContext?: UserContext[];
+  assistantEvents?: AssistantEvent[];
+  assistantRequests?: AssistantRequest[];
   trips?: TripSummary[];
   templates?: SplitTemplate[];
   aliases?: MerchantAlias[];

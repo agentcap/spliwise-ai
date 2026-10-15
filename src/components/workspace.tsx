@@ -47,6 +47,7 @@ import {
 import QuickInstruction from './quick-instruction';
 import TransactionContext from './transaction-context';
 import ChatPanel from './chat-panel';
+import UserContextPanel from './user-context-panel';
 import { DeleteRuleDialog, OptimizeRulesDialog } from './rule-management';
 import DataTransferDialog from './data-transfer-dialog';
 import ThemeToggle from './theme-toggle';
@@ -55,7 +56,8 @@ import PersonLedger from './person-ledger';
 import { WorkspaceProviders } from './timezone';
 import { api, Modal, ruleDescription, merchantLabel } from './ui';
 import { ImportDialog, PersonDialog, RepaymentDialog, SplitDialog, RuleDialog } from './dialogs';
-type View = 'overview' | 'review' | 'finalized' | 'people' | 'rules' | 'imports' | 'trips';
+type View =
+  'assistant' | 'overview' | 'review' | 'finalized' | 'people' | 'rules' | 'imports' | 'trips';
 export default function Workspace() {
   const [tripFilter, setTripFilter] = useState(''),
     [tripEditor, setTripEditor] = useState<Trip | 'new' | null>(null),
@@ -73,7 +75,7 @@ export default function Workspace() {
     [settingsOpen, setSettingsOpen] = useState(false),
     [fetchedDetail, setFetchedDetail] = useState<Transaction | null>(null);
   const [data, setData] = useState<Snapshot | null>(null),
-    [view, setView] = useState<View>('overview'),
+    [view, setView] = useState<View>('assistant'),
     [notice, setNotice] = useState<{ text: string; error?: boolean } | null>(null),
     [loading, setLoading] = useState(false);
   const [from, setFrom] = useState(''),
@@ -112,9 +114,18 @@ export default function Workspace() {
       s.trip,
     ]);
     setView(
-      (['overview', 'review', 'finalized', 'people', 'rules', 'imports', 'trips'].includes(s.view)
+      ([
+        'assistant',
+        'overview',
+        'review',
+        'finalized',
+        'people',
+        'rules',
+        'imports',
+        'trips',
+      ].includes(s.view)
         ? s.view
-        : 'overview') as View,
+        : 'assistant') as View,
     );
     setFrom(s.from);
     setTo(s.to);
@@ -293,6 +304,7 @@ export default function Workspace() {
       'Processing started. You can keep reviewing.',
     );
     setView('review');
+    setChatOpen(true);
   }
   async function sendChat(text: string) {
     const ids = data?.transactions
@@ -331,6 +343,7 @@ export default function Workspace() {
       items: items.map((t) => ({ id: t.id, version: t.version })),
       text,
     });
+    setChatOpen(true);
     await fetchData();
   }
   async function cancelJob(id: string) {
@@ -387,6 +400,7 @@ export default function Workspace() {
   );
   const chosen = filtered.filter((t) => selected.has(t.id));
   const title = {
+    assistant: 'Your AI workspace',
     trips: 'Trips',
     overview: 'Overview',
     review: 'Review workspace',
@@ -396,6 +410,7 @@ export default function Workspace() {
     imports: 'Import history',
   }[view];
   const nav = [
+    { view: 'assistant' as const, label: 'Assistant', icon: Sparkles },
     { view: 'overview' as const, label: 'Overview', icon: LayoutDashboard },
     {
       view: 'review' as const,
@@ -754,12 +769,80 @@ export default function Workspace() {
       );
     });
   }
+  const assistant = (
+    <ChatPanel
+      variant={view === 'assistant' ? 'workspace' : 'panel'}
+      events={data.assistantEvents}
+      requests={data.assistantRequests}
+      batches={data.batches}
+      onChanged={fetchData}
+      onOpen={(kind, id) => {
+        if (kind === 'trip') {
+          setTripFilter(id);
+          setView('trips');
+        } else if (kind === 'person') setView('people');
+        else setView('rules');
+      }}
+      onShortcut={(kind) => (kind === 'import' ? setImportOpen(true) : setManualOpen(true))}
+      onReviewTransactions={() => setView('review')}
+      scopeLabel={
+        chatScope === 'trip'
+          ? 'Trip: ' + (data.trips?.find((t) => t.id === tripFilter)?.name || 'Choose a trip')
+          : chatScope === 'selection'
+            ? chosen.filter((t) => t.state !== 'finalized').length +
+              (chosen.filter((t) => t.state !== 'finalized').length === 1
+                ? ' selected expense'
+                : ' selected expenses')
+            : 'Workspace'
+      }
+      scopeControl={
+        <select
+          aria-label="Assistant scope"
+          value={chatScope}
+          onChange={(e) => setChatScope(e.target.value as 'workspace' | 'selection' | 'trip')}
+        >
+          <option value="workspace">Workspace</option>
+          <option value="selection" disabled={!chosen.some((t) => t.state !== 'finalized')}>
+            Selected expenses
+          </option>
+          <option value="trip" disabled={!tripFilter}>
+            Current trip
+          </option>
+        </select>
+      }
+      messages={data.messages}
+      ruleChanges={data.ruleChanges}
+      rules={data.rules}
+      accounts={data.accounts}
+      onReviewRule={reviewChatRule}
+      jobs={data.jobs}
+      people={data.people}
+      transactions={data.transactions}
+      selected={data.transactions.filter((t) => selected.has(t.id) && t.state !== 'finalized')}
+      configured={data.aiConfigured}
+      draft={chat}
+      onDraftChange={setChat}
+      onSend={sendChat}
+      onClose={() => (view === 'assistant' ? navigate('overview') : setChatOpen(false))}
+      onClearSelection={() => setSelected(new Set())}
+      onTransaction={setDetailTxId}
+      onCancel={cancelJob}
+      onRetry={retryJob}
+    />
+  );
   return (
     <WorkspaceProviders
       error={notice?.error ? notice.text : null}
       timeZone={data.workspace?.timezone || 'America/Los_Angeles'}
     >
-      <div className={'app-shell ' + (compact ? 'compact ' : '') + (chatOpen ? 'has-chat' : '')}>
+      <div
+        className={
+          'app-shell ' +
+          (compact ? 'compact ' : '') +
+          (chatOpen && view !== 'assistant' ? 'has-chat' : '') +
+          (view === 'assistant' ? ' assistant-page' : '')
+        }
+      >
         <aside className="sidebar">
           <a href="/" className="brand">
             <span className="brand-symbol">
@@ -863,19 +946,21 @@ export default function Workspace() {
                 </div>
                 <h1>{title}</h1>
                 <p>
-                  {view === 'overview'
-                    ? 'Less sorting. More settling up.'
-                    : view === 'review'
-                      ? 'Give every expense the right share. You make the final call.'
-                      : view === 'rules'
-                        ? 'Teach it once. Review every change.'
-                        : view === 'people'
-                          ? 'The people you share life—and expenses—with.'
-                          : view === 'imports'
-                            ? 'Every statement, with a record of what was added.'
-                            : view === 'trips'
-                              ? 'Keep shared plans, expenses, and balances together.'
-                              : 'Accepted splits that count toward your balances.'}
+                  {view === 'assistant'
+                    ? 'Start with a conversation. Stay in control of every expense.'
+                    : view === 'overview'
+                      ? 'Less sorting. More settling up.'
+                      : view === 'review'
+                        ? 'Give every expense the right share. You make the final call.'
+                        : view === 'rules'
+                          ? 'Your assistant keeps rules and context organized.'
+                          : view === 'people'
+                            ? 'The people you share life—and expenses—with.'
+                            : view === 'imports'
+                              ? 'Every statement, with a record of what was added.'
+                              : view === 'trips'
+                                ? 'Keep shared plans, expenses, and balances together.'
+                                : 'Accepted splits that count toward your balances.'}
                 </p>
               </div>
               <div className="rule-page-actions">
@@ -895,72 +980,74 @@ export default function Workspace() {
                 </button>
               </div>
             </div>
-            <div className="date-strip">
-              <CalendarDays size={16} />
-              <span>Expense dates</span>
-              <select
-                aria-label="Date preset"
-                defaultValue=""
-                onChange={(e) => {
-                  const today = new Intl.DateTimeFormat('en-CA', {
-                      timeZone: data.workspace?.timezone || 'America/Los_Angeles',
-                    }).format(new Date()),
-                    year = Number(today.slice(0, 4)),
-                    month = Number(today.slice(5, 7));
-                  if (e.target.value === 'month') {
-                    setFrom(today.slice(0, 7) + '-01');
-                    setTo(today);
-                  }
-                  if (e.target.value === 'last') {
-                    setFrom(new Date(Date.UTC(year, month - 2, 1)).toISOString().slice(0, 10));
-                    setTo(new Date(Date.UTC(year, month - 1, 0)).toISOString().slice(0, 10));
-                  }
-                  if (e.target.value === 'year') {
-                    setFrom(year + '-01-01');
-                    setTo(today);
-                  }
-                  if (e.target.value === 'all') {
-                    setFrom('');
-                    setTo('');
-                  }
-                  e.currentTarget.value = '';
-                }}
-              >
-                <option value="" disabled>
-                  Quick dates
-                </option>
-                <option value="month">This month</option>
-                <option value="last">Last month</option>
-                <option value="year">This year</option>
-                <option value="all">All time</option>
-              </select>
-              <input
-                aria-label="Start date"
-                type="date"
-                value={from}
-                onChange={(e) => setFrom(e.target.value)}
-              />
-              <span>to</span>
-              <input
-                aria-label="End date"
-                type="date"
-                value={to}
-                onChange={(e) => setTo(e.target.value)}
-              />
-              {from || to ? (
-                <button
-                  className="text-button"
-                  onClick={() => {
-                    setFrom('');
-                    setTo('');
+            {view !== 'assistant' && (
+              <div className="date-strip">
+                <CalendarDays size={16} />
+                <span>Expense dates</span>
+                <select
+                  aria-label="Date preset"
+                  defaultValue=""
+                  onChange={(e) => {
+                    const today = new Intl.DateTimeFormat('en-CA', {
+                        timeZone: data.workspace?.timezone || 'America/Los_Angeles',
+                      }).format(new Date()),
+                      year = Number(today.slice(0, 4)),
+                      month = Number(today.slice(5, 7));
+                    if (e.target.value === 'month') {
+                      setFrom(today.slice(0, 7) + '-01');
+                      setTo(today);
+                    }
+                    if (e.target.value === 'last') {
+                      setFrom(new Date(Date.UTC(year, month - 2, 1)).toISOString().slice(0, 10));
+                      setTo(new Date(Date.UTC(year, month - 1, 0)).toISOString().slice(0, 10));
+                    }
+                    if (e.target.value === 'year') {
+                      setFrom(year + '-01-01');
+                      setTo(today);
+                    }
+                    if (e.target.value === 'all') {
+                      setFrom('');
+                      setTo('');
+                    }
+                    e.currentTarget.value = '';
                   }}
                 >
-                  Clear
-                </button>
-              ) : (
-                <span className="all-time">All time</span>
-              )}
-            </div>
+                  <option value="" disabled>
+                    Quick dates
+                  </option>
+                  <option value="month">This month</option>
+                  <option value="last">Last month</option>
+                  <option value="year">This year</option>
+                  <option value="all">All time</option>
+                </select>
+                <input
+                  aria-label="Start date"
+                  type="date"
+                  value={from}
+                  onChange={(e) => setFrom(e.target.value)}
+                />
+                <span>to</span>
+                <input
+                  aria-label="End date"
+                  type="date"
+                  value={to}
+                  onChange={(e) => setTo(e.target.value)}
+                />
+                {from || to ? (
+                  <button
+                    className="text-button"
+                    onClick={() => {
+                      setFrom('');
+                      setTo('');
+                    }}
+                  >
+                    Clear
+                  </button>
+                ) : (
+                  <span className="all-time">All time</span>
+                )}
+              </div>
+            )}
             {savedViews.length > 0 && ['review', 'finalized'].includes(view) && (
               <div className="saved-views">
                 <span>Saved views</span>
@@ -1002,6 +1089,19 @@ export default function Workspace() {
                 </button>
               </div>
             )}
+            {view !== 'assistant' &&
+              data.assistantRequests?.some((r) => r.status === 'pending') && (
+                <div className="pending-confirmations-banner">
+                  <Sparkles size={18} />
+                  <span>
+                    {data.assistantRequests.filter((r) => r.status === 'pending').length}{' '}
+                    transaction action(s) waiting for your confirmation
+                  </span>
+                  <button className="quiet-button" onClick={() => setChatOpen(true)}>
+                    Review in chat <ArrowRight size={14} />
+                  </button>
+                </div>
+              )}
             {currentJob && (
               <div className="job-progress" role="status">
                 <LoaderCircle className="spin" size={17} />
@@ -1037,6 +1137,59 @@ export default function Workspace() {
                   </button>
                 </div>
               ))}
+            {view === 'assistant' && (
+              <div className="assistant-home">
+                <div className="assistant-conversation">{assistant}</div>
+                <aside className="assistant-home-rail">
+                  <section className="panel">
+                    <span className="eyebrow">YOUR WORKSPACE</span>
+                    <h3>A little less admin.</h3>
+                    <p>
+                      Describe what happened. I’ll organize the details and prepare the next step.
+                    </p>
+                    <button className="assistant-rail-link" onClick={() => navigate('review')}>
+                      <ListChecks size={17} />
+                      <span>
+                        Review expenses
+                        <small>
+                          {d.inboxCount} in Inbox · {d.readyCount} ready
+                        </small>
+                      </span>
+                      <ArrowRight size={15} />
+                    </button>
+                    <button className="assistant-rail-link" onClick={() => navigate('trips')}>
+                      <MapPin size={17} />
+                      <span>
+                        Your trips
+                        <small>
+                          {data.trips?.filter((t) => t.status === 'active').length || 0} active
+                          trips
+                        </small>
+                      </span>
+                      <ArrowRight size={15} />
+                    </button>
+                    <button className="assistant-rail-link" onClick={() => navigate('overview')}>
+                      <LayoutDashboard size={17} />
+                      <span>
+                        See balances<small>{money(d.totalOutstandingCents)} outstanding</small>
+                      </span>
+                      <ArrowRight size={15} />
+                    </button>
+                  </section>
+                  <section className="assistant-boundaries">
+                    <Sparkles size={19} />
+                    <h4>I handle the setup. You make it final.</h4>
+                    <p>
+                      Rules, context and trip details are saved automatically. Confirm transaction
+                      changes in chat, then approve final splits when they look right.
+                    </p>
+                    <button className="text-button" onClick={() => navigate('rules')}>
+                      View saved rules & context <ArrowRight size={14} />
+                    </button>
+                  </section>
+                </aside>
+              </div>
+            )}
             {view === 'overview' && (
               <>
                 {!data.onboardingDismissed && (
@@ -1296,7 +1449,20 @@ export default function Workspace() {
                 }}
               />
             )}
-            {view === 'rules' && <WorkspaceTools data={data} onChanged={fetchData} />}
+            {view === 'rules' && (
+              <>
+                <UserContextPanel
+                  data={data}
+                  onChanged={fetchData}
+                  onAsk={(text) => {
+                    setChat(text);
+                    setChatOpen(true);
+                    setChatScope('workspace');
+                  }}
+                />
+                <WorkspaceTools data={data} onChanged={fetchData} />
+              </>
+            )}
             {view === 'review' && (
               <>
                 {filters}
@@ -1871,56 +2037,7 @@ export default function Workspace() {
             )}
           </main>
         </div>
-        {chatOpen && (
-          <ChatPanel
-            onReviewTransactions={() => setView('review')}
-            scopeLabel={
-              chatScope === 'trip'
-                ? 'Trip: ' + (data.trips?.find((t) => t.id === tripFilter)?.name || 'Choose a trip')
-                : chatScope === 'selection'
-                  ? chosen.filter((t) => t.state !== 'finalized').length +
-                    (chosen.filter((t) => t.state !== 'finalized').length === 1
-                      ? ' selected expense'
-                      : ' selected expenses')
-                  : 'Workspace'
-            }
-            scopeControl={
-              <select
-                aria-label="Assistant scope"
-                value={chatScope}
-                onChange={(e) => setChatScope(e.target.value as 'workspace' | 'selection' | 'trip')}
-              >
-                <option value="workspace">Workspace</option>
-                <option value="selection" disabled={!chosen.some((t) => t.state !== 'finalized')}>
-                  Selected expenses
-                </option>
-                <option value="trip" disabled={!tripFilter}>
-                  Current trip
-                </option>
-              </select>
-            }
-            messages={data.messages}
-            ruleChanges={data.ruleChanges}
-            rules={data.rules}
-            accounts={data.accounts}
-            onReviewRule={reviewChatRule}
-            jobs={data.jobs}
-            people={data.people}
-            transactions={data.transactions}
-            selected={data.transactions.filter(
-              (t) => selected.has(t.id) && t.state !== 'finalized',
-            )}
-            configured={data.aiConfigured}
-            draft={chat}
-            onDraftChange={setChat}
-            onSend={sendChat}
-            onClose={() => setChatOpen(false)}
-            onClearSelection={() => setSelected(new Set())}
-            onTransaction={setDetailTxId}
-            onCancel={cancelJob}
-            onRetry={retryJob}
-          />
-        )}
+        {view !== 'assistant' && chatOpen && assistant}
         {loading && (
           <div className="working-indicator" aria-label="Saving">
             <LoaderCircle className="spin" size={18} />
@@ -1935,6 +2052,7 @@ export default function Workspace() {
               await fetchData();
               setNotice({ text: summary });
               navigate(run ? 'review' : 'overview');
+              if (run) setChatOpen(true);
             }}
           />
         )}

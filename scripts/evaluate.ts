@@ -1,6 +1,8 @@
 import { openDatabase } from '../src/db';
 import { Store } from '../src/lib/store';
 import { askAgent } from '../src/lib/agent';
+import { applyStep } from '../src/lib/jobs';
+import { AssistantService } from '../src/lib/assistant-service';
 const live = process.argv.includes('--live');
 process.env.APP_MODE = 'local';
 process.env.CONTROL_DATABASE_PATH ||= './data/evaluations.control.sqlite';
@@ -75,8 +77,20 @@ for (const scenario of cases) {
         ('refund' in scenario && scenario.refund ? '-10.00' : '10.00'),
     );
     const { ids } = store.confirmImport(preview.id, false);
-    const result = await askAgent(store, scenario.instruction, ids, AbortSignal.timeout(90000));
-    store.saveProposals(result.updates, 'agent');
+    const jobId = store.enqueue('chat', { text: scenario.instruction, ids });
+    const result = await askAgent(
+      store,
+      scenario.instruction,
+      ids,
+      AbortSignal.timeout(90000),
+      undefined,
+      jobId,
+    );
+    applyStep(store, jobId, 0, result, 1, 100);
+    if (store.transaction(ids[0]).state !== 'inbox')
+      throw new Error('Transaction moved without approval.');
+    for (const r of new AssistantService(store).requests().filter((r) => r.status === 'pending'))
+      new AssistantService(store).applyRequest(r.id);
     const tx = store.transaction(ids[0]);
     const correct =
       tx.state === scenario.expected &&

@@ -1,3 +1,8 @@
+import { AssistantService } from '../src/lib/assistant-service';
+function confirmPrepared(store: Store) {
+  for (const r of new AssistantService(store).requests().filter((r) => r.status === 'pending'))
+    new AssistantService(store).applyRequest(r.id);
+}
 import { beforeAll, afterAll, beforeEach, afterEach, test, expect, vi } from 'vitest';
 import { mkdtempSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -518,6 +523,7 @@ test('approved rules run without AI consent while unresolved items stay in Inbox
     const other = imported(store, 'NO RULE PURCHASE').id;
     const job = store.enqueue('process', { ids: [id, other] });
     await executeJob(store, claimJob(store)!);
+    confirmPrepared(store);
     expect(store.job(job).status).toBe('completed');
     expect(store.transaction(id).state).toBe('ready');
     expect(store.transaction(other).state).toBe('inbox');
@@ -665,4 +671,48 @@ test('production trip, manual expense, receipt and settlement interfaces stay wi
   expect((await call('settlements/' + participant.id, tokenB)).status).toBe(404);
   expect((await call('transactions/manual', undefined, {})).status).toBe(401);
   expect((await call('trips/save', undefined, {})).status).toBe(401);
+  const assistant = new AssistantService(a),
+    quote = 'Synthetic private household context';
+  assistant.applyOperation(
+    {
+      kind: 'context',
+      action: 'save',
+      id: randomUUID(),
+      version: null,
+      title: 'Private context',
+      text: quote,
+      quote,
+      personId: participant.id,
+      tripId: trip.id,
+      from: null,
+      to: null,
+    },
+    'private-job',
+    0,
+    quote,
+  );
+  const request = assistant.queue(
+    'private-job',
+    'expense',
+    {
+      kind: 'expense',
+      description: 'Private manual draft',
+      date: '2026-01-02',
+      amountCents: 100,
+      category: 'Travel',
+      note: '',
+      tripId: trip.id,
+    },
+    'Private draft',
+  );
+  expect((await call('assistant-requests/' + request + '/apply', tokenB, {})).status).toBe(404);
+  expect((await call('assistant-requests/' + request + '/dismiss', tokenB, {})).status).toBe(409);
+  expect((await call('assistant-requests/' + request + '/apply', undefined, {})).status).toBe(401);
+  expect(
+    (await call('context/delete', tokenB, { id: assistant.contexts()[0].id, version: 1 })).status,
+  ).toBe(409);
+  const other = await (await call('state', tokenB)).json();
+  expect(other.userContext).toHaveLength(0);
+  expect(other.assistantRequests).toHaveLength(0);
+  expect((await call('assistant-requests/' + request + '/apply', tokenA, {})).status).toBe(200);
 });

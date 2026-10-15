@@ -41,11 +41,23 @@ Without a key, imports, approved rules, manual splits, review, repayments, and r
 
 The interface uses **Midnight**, a modern navy theme with restrained blue accents, and a matching light theme. The top-bar switch remembers your choice across reloads. Compact review, readable split amounts, mobile Inbox/Ready tabs and a detail drawer keep common actions close.
 
+## A conversation-first workspace
+
+**Assistant** is the home page. Describe a trip, an expense, a recurring split or a household fact. Chat can create and edit trips, add clearly identified people, manage active rules and saved user context, save templates and merchant names, and answer balance questions. Import and receipt uploads remain accessible through the interface.
+
+For example: “We went to Yosemite from June 1–3, 2028 with @alex. Food was shared equally.” The assistant creates the trip when dates and people are clear, or asks one focused question for missing details. Trip membership is suggested separately and requires confirmation.
+
+Rules and user facts are saved **automatically**, with visible action receipts and persistent Undo. Allocation rules define what to split; user context stores facts separately with person, trip and optional date scopes. View, correct or forget them in **Rules & context** or in chat. Facts must come from user messages or saved user instructions, never statement text.
+
+Every agent-generated **transaction change** waits for an explicit confirmation card, including Inbox/Ready moves, revised allocations, trip assignments, manual expenses and repayments. **Confirm split changes** applies the proposed allocation to its review state. **Finalize N splits** is a separate user action in chat that changes balances; the review board remains available. Stale cards fail atomically and must be regenerated. The agent has no finalization, reopening, approval or repayment-write tool.
+
+Automatic rule and trip edits affect future processing. They do not move existing transactions or rewrite accepted allocations. Existing proposals that reference an older definition must be regenerated before final approval. Previously imported or manually saved rule drafts remain available for review; new agent rules are active immediately.
+
 ## Trips and everyday expenses
 
 Create a trip with dates, participants, an equal/fixed/percentage default and optional context. Dates produce a suggestion list; select expenses explicitly before assigning them. Flight bookings outside the trip dates can be attached from Review or Finalized using **Assign trip**. A transaction belongs to at most one trip.
 
-Trip pages show assigned counts, unfinished review, finalized cost and your finalized share. **Review trip expenses** opens the scoped review workspace. Defaults without extra context run locally; context with possible exceptions is checked by AI. **Trip default** applies the saved split directly when you choose it. Individual instructions and manual splits handle exceptions. Editing a trip returns its unfinished proposals to Inbox; finalized allocations stay unchanged. Archive after every assigned expense is finalized, and reopen when needed.
+Trip pages show assigned counts, unfinished review, finalized cost and your finalized share. **Review trip expenses** opens the scoped review workspace. Defaults without extra context run locally; context with possible exceptions is checked by AI. **Trip default** applies the saved split directly when you choose it. Individual instructions and manual splits handle exceptions. A manual trip edit returns unfinished proposals to Inbox. An automatic assistant edit preserves states; proposals based on old trip defaults require regeneration before approval. Finalized allocations stay unchanged. Archive after every assigned expense is finalized, and reopen when needed.
 
 **Add expense** records cash, rent and other expenses outside statements. It creates an Inbox item with you as payer, optional notes and an optional trip. Retry protection prevents double entry. Manual source records remain separate from CSV duplicate detection.
 
@@ -61,17 +73,17 @@ Use **Personal**, **Split equally**, **Use last split**, or a saved template to 
 
 Save named filters with **Save view**, use quick date presets, and return to the same view after refresh or browser Back. Saved views remain in this browser and are separated by workspace identity. Focus an expense and use **J/K** to navigate, **Space** to select, **Enter** for details and **Ctrl+Z** for Undo.
 
-The assistant scope selector makes **Workspace**, **Selected expenses**, and **Current trip** explicit. Trip requests are resolved to assigned unfinished IDs on the server. Completed replies link back to proposal review. The agent has no tools to create expenses, edit trips, write repayments or change finalized records.
+The assistant scope selector makes **Workspace**, **Selected expenses**, and **Current trip** explicit. Trip requests are resolved to assigned unfinished IDs on the server. Completed replies link back to proposal review. The agent can manage trip setup directly and prepare confirmation cards for assignments, expenses and repayments. It cannot approve or execute financial actions or change finalized records.
 
 Overview includes a getting-started checklist. Dismiss it when finished, or restore it from Settings. Person and trip pages provide **settlement summary** downloads with currently unpaid amounts, including repayments received later. You decide how to share the file; the app sends no reminders or messages.
 
 ## Quick instructions and chat
 
-Every Inbox expense has an instruction box. Type a split and any useful context, then press **Enter** to process that expense immediately. **Shift+Enter** adds a line. Use **@** to choose a person; Enter first accepts the highlighted mention. Clear instructions become proposals in Ready for review; ambiguous ones stay in Inbox with a question.
+Every Inbox expense has an instruction box. Type a split and any useful context, then press **Enter** to process that expense immediately. **Shift+Enter** adds a line. Use **@** to choose a person; Enter first accepts the highlighted mention. Clear instructions produce a confirmation card. Apply it to move the expense into Ready for review; ambiguous ones stay in Inbox with a question.
 
-The complete instruction is saved under **Saved context**, including details such as what a purchase was for or which trip it belonged to. Earlier notes remain available when you add a follow-up. Context is searchable and remains visible after finalization through **View saved context**. Transaction context is one-off; reusable rules still require visible approval.
+The complete instruction is saved under **Saved context**, including details such as what a purchase was for or which trip it belonged to. Earlier notes remain available when you add a follow-up. Context is searchable and remains visible after finalization through **View saved context**. Transaction context is one-off. Reusable rules and broader user facts are managed automatically and shown in chat.
 
-Reusable rule proposals appear as review cards directly below the assistant’s reply. Check the merchant, card, date scope, participants, and category, then **Approve rule** or **Reject** without leaving the review workspace. Approval normally affects future processing; optionally select **Also process matching Inbox expenses** to queue those expenses immediately. Existing pending proposals are also available in chat, and approval/rejection states persist across reloads.
+New assistant rules activate automatically and appear as saved-change cards below the reply. Rules can match merchant, card, category and date scope. Ask chat to update, delete or optimize them. Existing manual/imported drafts remain visible for review; they are not silently activated as part of a migration.
 
 Chat supports Markdown replies, growing input, Enter-to-send, live reply text and activity, queued requests, Stop/Retry, and links back to the relevant expense. It opens at the latest message and lets you read older messages without being pulled back down. Selected unfinished expenses scope a request; their full chat instructions are attached as context. For unselected requests, the agent can attach relevant exact quotes from your message to unfinished expenses. AI still cannot modify finalized expenses.
 
@@ -83,7 +95,7 @@ After confirming a new statement CSV, the optional **Context** step shows the ca
 
 Choose **Save context & process** or **Save context & finish**. Leaving the field blank keeps **Process now** and **Finish for now** available. Import-only reuploads with no new expenses skip the context prompt. Processing is queued atomically after context is saved and identical retries cannot start it twice.
 
-Context is one-off, attached to each scoped expense under **Saved context → From statement import**, searchable and retained after finalization. It is also recorded as the context provided in import history and travels with transaction JSON exports. Context instructions take priority over broader rules during future processing; a reusable rule still requires explicit approval. Undo can remove the saved context/instruction batch while the original import and its historical receipt remain.
+Context is one-off, attached to each scoped expense under **Saved context → From statement import**, searchable and retained after finalization. It is also recorded as the context provided in import history and travels with transaction JSON exports. Context instructions take priority over broader rules during future processing; the assistant manages reusable rules separately and automatically. Undo can remove the saved context/instruction batch while the original import and its historical receipt remain.
 
 ## Import and export your data
 
@@ -114,9 +126,9 @@ Optimize runs locally without an API call. Its preview identifies normalized dup
 1. **Add people.** Choose a unique @handle and an optional relationship. Mention autocomplete supports arrow keys and Enter. Mentions resolve to stable person IDs.
 2. **Import statements.** Select the specific card account. Review transaction/posting date ranges, duplicates, card payments, and invalid rows. Every proposed skip needs acknowledgement. “Keep as distinct” preserves a known separate occurrence.
 3. **Process now or later.** New expenses/refunds start in Inbox. Card payments stay in import history and never affect balances.
-4. **Review.** Approved rules run first. High-confidence AI inferences may enter Ready; uncertain items remain in Inbox. Expand merchant groups and approve/reject individually or in bulk. Approve immediately finalizes a split.
-5. **Correct.** Enter personal, equal, exact, or percentage splits directly. Or save individual instructions and use Generate revised splits. Remembering an instruction proposes a rule; it does not activate it.
-6. **Approve rules.** Every new/edit proposal waits for your approval in chat or Rules & context. Date/card/category scopes override broader instructions. Conflicting equally applicable rules require clarification. Reprocess selected unfinished expenses to apply newly approved rules.
+4. **Review.** Active rules run first. Apply the confirmation card for generated changes before expenses enter Ready; uncertain items remain in Inbox. Expand merchant groups and approve/reject individually or in bulk. Approve immediately finalizes a split.
+5. **Correct.** Enter personal, equal, exact, or percentage splits directly. Or save individual instructions and use Generate revised splits. The assistant saves recurring rules automatically, while one-off instructions stay with the expense.
+6. **Manage rules in chat.** The assistant saves, updates, deletes and optimizes rules without another approval. Date/card/category scopes override broader instructions; equally applicable conflicts require clarification. Request reprocessing explicitly to revise existing unfinished expenses.
 7. **Settle up.** Record repayments, partial repayments, and returns of available credit. Open a person’s card for expense/repayment details.
 8. **Undo.** Reverse the latest completed review, agent, rule, or repayment batch; repeat across sessions. Imports and adding people are retained. No redo.
 
@@ -152,52 +164,54 @@ The date filter shows **what remains unpaid from expenses in that range now**, i
 - Next.js, React, TypeScript, Node route API.
 - SQLite, Drizzle schema/migrations, WAL, foreign keys, busy timeout, atomic bulk writes.
 - Durable background job queue with lease/heartbeat, checkpoint cursor, cancellation/retry, and idempotent step keys.
-- OpenAI Agents SDK on Responses; one agent, Zod function contracts, qualitative confidence, local conversation history, store:false, hosted tracing disabled.
+- [OpenAI Agents SDK](https://developers.openai.com/api/docs/guides/agents/sdk) on Responses; one agent, Zod function contracts, qualitative confidence, local conversation history, store:false, hosted tracing disabled.
 - Domain services own arithmetic, expected-version checks, permissions, finalization, and inverse snapshots for persistent Undo.
 - Agent writes buffer until a run succeeds, then apply transactionally. Processing uses batches of 20. Failed/cancelled runs retain completed batches; retry resumes from the checkpoint.
-- Rules are visible, reviewed, and versioned. There is no hidden learned memory.
-- Agent tools can search records/context, propose unfinished splits, move Inbox ↔ Ready, request clarification, and propose rules/categories. No finalization, reopening, repayment-write, SQL, filesystem, or arbitrary network tools.
+- Rules and scoped user context are visible, versioned and undoable. Assistant changes are buffered until successful completion; transaction actions are stored as durable confirmation requests.
+- Agent tools can search records/context and balances, prepare splits, maintain rules/context/trips/people/templates/aliases and prepare financial confirmation cards. They cannot finalize, reopen expenses, apply confirmation cards, execute repayments, run SQL, access files or make arbitrary network calls.
 - Fonts are bundled locally. Necessary transaction details go to OpenAI when AI is enabled. Files, keys, and databases remain outside Git.
 
 ### Server interfaces
 
 All routes start with **/api**. Mutation bodies are JSON except multipart import previews and receipt uploads. The browser is the user authority; agent tools call domain services with a fixed agent actor.
 
-| Method | Route                                           | Purpose                                                                 |
-| ------ | ----------------------------------------------- | ----------------------------------------------------------------------- |
-| GET    | /state?from=YYYY-MM-DD&to=YYYY-MM-DD            | Workspace and balances                                                  |
-| GET    | /health                                         | Local server health                                                     |
-| POST   | /imports/preview                                | Multipart file and accountId                                            |
-| GET    | /imports/:id                                    | Retained row decisions and payment history                              |
-| POST   | /imports/finish                                 | Save optional date-scoped context and atomically queue processing       |
-| POST   | /imports/confirm                                | Preview ID, skip acknowledgements, retained duplicate row numbers       |
-| POST   | /people                                         | Name, unique handle, relationship                                       |
-| POST   | /transactions/instruct                          | Save Inbox instruction/context and queue that expense atomically        |
-| POST   | /transactions/proposal                          | Manual split/category, expected version, optional original purchase     |
-| POST   | /transactions/review                            | Atomic approve/reject/reopen/correct with IDs and expected versions     |
-| POST   | /rules/propose                                  | New/edit rule proposal                                                  |
-| POST   | /rules/review                                   | User approval/rejection                                                 |
-| GET    | /transfer/export                                | Download transactions JSON/CSV or rules JSON                            |
-| POST   | /transfer/preview                               | Multipart JSON file and transactions/rules kind                         |
-| POST   | /transfer/confirm                               | Preview ID, skip/person acknowledgements, retained duplicate rows       |
-| POST   | /rules/delete                                   | Version-checked deletion with persistent Undo                           |
-| GET    | /rules/optimize/preview                         | Local duplicate/merge preview and revision                              |
-| POST   | /rules/optimize/apply                           | Apply selected cleanup groups atomically with Undo                      |
-| POST   | /repayments                                     | Person, date, cents, direction, note, stable requestId for retry safety |
-| POST   | /trips/save, /trips/archive, /trips/assign      | Versioned trip organization and explicit expense assignment             |
-| GET    | /trips/:id/suggestions                          | Paginated suggestions from trip dates                                   |
-| POST   | /transactions/manual, /transactions/quick       | Retry-safe manual entry and atomic quick proposals                      |
-| POST   | /templates/save, /templates/delete              | Manage split templates with Undo                                        |
-| POST   | /aliases/save, /aliases/delete                  | Manage readable merchant names with Undo                                |
-| GET    | /transaction-source/:id, /transaction-files/:id | Original fields, action history and receipt metadata                    |
-| POST   | /attachments/upload, /attachments/delete        | Add or remove a private receipt                                         |
-| GET    | /attachments/:id, /settlements/:personId        | Download a receipt or current unpaid summary                            |
-| POST   | /onboarding                                     | Dismiss or restore the checklist                                        |
-| POST   | /undo                                           | Undo latest completed batch                                             |
-| POST   | /jobs                                           | Process selected/Inbox transactions or chat                             |
-| GET    | /jobs/:id/events                                | Stream progress                                                         |
-| POST   | /jobs/:id/cancel                                | Cancel unfinished work                                                  |
-| POST   | /jobs/:id/retry                                 | Resume failed/cancelled work                                            |
+| Method | Route                                              | Purpose                                                                 |
+| ------ | -------------------------------------------------- | ----------------------------------------------------------------------- |
+| GET    | /state?from=YYYY-MM-DD&to=YYYY-MM-DD               | Workspace and balances                                                  |
+| GET    | /health                                            | Local server health                                                     |
+| POST   | /imports/preview                                   | Multipart file and accountId                                            |
+| GET    | /imports/:id                                       | Retained row decisions and payment history                              |
+| POST   | /imports/finish                                    | Save optional date-scoped context and atomically queue processing       |
+| POST   | /imports/confirm                                   | Preview ID, skip acknowledgements, retained duplicate row numbers       |
+| POST   | /people                                            | Name, unique handle, relationship                                       |
+| POST   | /transactions/instruct                             | Save Inbox instruction/context and queue that expense atomically        |
+| POST   | /transactions/proposal                             | Manual split/category, expected version, optional original purchase     |
+| POST   | /transactions/review                               | Atomic approve/reject/reopen/correct with IDs and expected versions     |
+| POST   | /rules/propose                                     | New/edit rule proposal                                                  |
+| POST   | /rules/review                                      | User approval/rejection                                                 |
+| GET    | /transfer/export                                   | Download transactions JSON/CSV or rules JSON                            |
+| POST   | /transfer/preview                                  | Multipart JSON file and transactions/rules kind                         |
+| POST   | /transfer/confirm                                  | Preview ID, skip/person acknowledgements, retained duplicate rows       |
+| POST   | /rules/delete                                      | Version-checked deletion with persistent Undo                           |
+| GET    | /rules/optimize/preview                            | Local duplicate/merge preview and revision                              |
+| POST   | /rules/optimize/apply                              | Apply selected cleanup groups atomically with Undo                      |
+| POST   | /repayments                                        | Person, date, cents, direction, note, stable requestId for retry safety |
+| POST   | /trips/save, /trips/archive, /trips/assign         | Versioned trip organization and explicit expense assignment             |
+| GET    | /trips/:id/suggestions                             | Paginated suggestions from trip dates                                   |
+| POST   | /transactions/manual, /transactions/quick          | Retry-safe manual entry and atomic quick proposals                      |
+| POST   | /templates/save, /templates/delete                 | Manage split templates with Undo                                        |
+| POST   | /aliases/save, /aliases/delete                     | Manage readable merchant names with Undo                                |
+| GET    | /transaction-source/:id, /transaction-files/:id    | Original fields, action history and receipt metadata                    |
+| POST   | /attachments/upload, /attachments/delete           | Add or remove a private receipt                                         |
+| GET    | /attachments/:id, /settlements/:personId           | Download a receipt or current unpaid summary                            |
+| POST   | /assistant-requests/:id/apply, /dismiss, /finalize | Explicit user confirmation, dismissal and final split approval          |
+| POST   | /context/delete                                    | Forget a saved fact with version checks and Undo                        |
+| POST   | /onboarding                                        | Dismiss or restore the checklist                                        |
+| POST   | /undo                                              | Undo latest completed batch                                             |
+| POST   | /jobs                                              | Process selected/Inbox transactions or chat                             |
+| GET    | /jobs/:id/events                                   | Stream progress                                                         |
+| POST   | /jobs/:id/cancel                                   | Cancel unfinished work                                                  |
+| POST   | /jobs/:id/retry                                    | Resume failed/cancelled work                                            |
 
 Shared contracts live in **src/lib/types.ts**. State, version, batch ID, cent amounts, participant IDs, confidence, and proposal source are explicit. Stale writes conflict or leave changed transactions untouched; refresh and regenerate.
 
@@ -233,6 +247,8 @@ npm run test:production          # Run after build; synthetic production sign-in
 npm run test:container           # Docker Compose, HTTPS/OIDC and encrypted recovery
 npm run test:eval                # Synthetic mocked-agent regressions
 npm run test:eval -- --live      # Opt-in billable model evaluations
+npm run test:assistant             # Conversation capability regressions
+npm run test:assistant -- --live    # Opt-in live trips, memory and rule checks
 npm run check:secrets
 npm run validate:samples -- /path/to/sample-directory
 ```
