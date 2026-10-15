@@ -25,4 +25,4 @@ USER node
 EXPOSE 3000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=60s --retries=3 CMD ["node","scripts/healthcheck.mjs"]
 ENTRYPOINT ["sh","/app/entrypoint.sh"]
-CMD ["npm","start"]
+CMD ["node","scripts/dev.mjs","--production"]

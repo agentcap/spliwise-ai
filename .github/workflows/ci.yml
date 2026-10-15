@@ -31,26 +31,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with: { persist-credentials: false }
-      - name: Prepare synthetic container settings
-        run: |
-          cp deploy/production.env.example .env.production
-          sed -i 's|APP_URL=.*|APP_URL=https://splitwise.test|;s|APP_DOMAIN=.*|APP_DOMAIN=splitwise.test|;s|OIDC_CLIENT_ID=.*|OIDC_CLIENT_ID=synthetic|;s|OIDC_CLIENT_SECRET=.*|OIDC_CLIENT_SECRET=synthetic|' .env.production
-          cp deploy/backup.env.example .env.backup
-          mkdir -p secrets
-          printf '%s' 'synthetic-test-password' > secrets/restic-password
-          chmod 600 secrets/restic-password
-      - run: docker compose --env-file .env.production run --rm --no-deps proxy caddy adapt --config /etc/caddy/Caddyfile --validate
-      - run: docker compose --env-file .env.production build app
-      - run: docker compose --env-file .env.production run --rm operations npm run db:migrate:all
-      - run: docker compose --env-file .env.production up -d app
-      - name: Wait for database and worker readiness
-        run: |
-          for attempt in $(seq 1 30); do
-            if docker compose --env-file .env.production exec -T app node scripts/healthcheck.mjs; then exit 0; fi
-            sleep 2
-          done
-          exit 1
-      - name: Unauthenticated production requests cannot read data
-        run: docker compose --env-file .env.production exec -T app node scripts/healthcheck.mjs --unauthenticated
-      - if: always()
-        run: docker compose --env-file .env.production down -v
+      - uses: actions/setup-node@v6
+        with: { node-version: '24' }
+      - name: Production Compose, HTTPS, OIDC, financial workflow and encrypted recovery
+        run: sudo "$(command -v node)" scripts/container-smoke.mjs

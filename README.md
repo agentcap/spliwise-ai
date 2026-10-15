@@ -197,6 +197,7 @@ npm exec playwright install --with-deps chromium
 npm run test:browser
 npm run test:live
 npm run test:production          # Run after build; synthetic production sign-in gate
+npm run test:container           # Docker Compose, HTTPS/OIDC and encrypted recovery
 npm run test:eval                # Synthetic mocked-agent regressions
 npm run test:eval -- --live      # Opt-in billable model evaluations
 npm run check:secrets

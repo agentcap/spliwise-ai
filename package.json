@@ -28,7 +28,8 @@
     "check:secrets": "node scripts/check-secrets.mjs",
     "test:eval": "node --env-file-if-exists=.env.local --import tsx scripts/evaluate.ts",
     "workspace:adopt": "node --env-file-if-exists=.env.local --import tsx scripts/adopt-workspace.ts",
-    "test:production": "node scripts/production-smoke.mjs"
+    "test:production": "node scripts/production-smoke.mjs",
+    "test:container": "node scripts/container-smoke.mjs"
   },
   "dependencies": {
     "@fontsource/dm-sans": "5.3.0",
