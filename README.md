@@ -45,6 +45,8 @@ Every Inbox expense has an instruction box. Type a split and any useful context,
 
 The complete instruction is saved under **Saved context**, including details such as what a purchase was for or which trip it belonged to. Earlier notes remain available when you add a follow-up. Context is searchable and remains visible after finalization through **View saved context**. Transaction context is one-off; reusable rules still require visible approval.
 
+Reusable rule proposals appear as review cards directly below the assistant’s reply. Check the merchant, card, date scope, participants, and category, then **Approve rule** or **Reject** without leaving the review workspace. Approval normally affects future processing; optionally select **Also process matching Inbox expenses** to queue those expenses immediately. Existing pending proposals are also available in chat, and approval/rejection states persist across reloads.
+
 Chat supports Markdown replies, growing input, Enter-to-send, live reply text and activity, queued requests, Stop/Retry, and links back to the relevant expense. It opens at the latest message and lets you read older messages without being pulled back down. Selected unfinished expenses scope a request; their full chat instructions are attached as context. For unselected requests, the agent can attach relevant exact quotes from your message to unfinished expenses. AI still cannot modify finalized expenses.
 
 Conversation and context timestamps default to **America/Los_Angeles**. Set **NEXT_PUBLIC_TIME_ZONE** before starting if you use another timezone.

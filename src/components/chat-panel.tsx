@@ -11,7 +11,16 @@ import {
   Sparkles,
   X,
 } from 'lucide-react';
-import type { AgentJob, Person, Message, Transaction } from '@/lib/types';
+import type {
+  Account,
+  AgentJob,
+  Person,
+  Message,
+  Transaction,
+  Rule,
+  RuleChange,
+} from '@/lib/types';
+import ChatRuleCard from './chat-rule-card';
 import MentionInput from './mention-input';
 import { displayTime } from '@/lib/display-time';
 
@@ -37,6 +46,10 @@ function RichReply({ text }: { text: string }) {
 
 export default function ChatPanel({
   messages,
+  ruleChanges,
+  rules,
+  accounts,
+  onReviewRule,
   jobs,
   people,
   transactions,
@@ -52,6 +65,10 @@ export default function ChatPanel({
   onRetry,
 }: {
   messages: Message[];
+  ruleChanges: RuleChange[];
+  rules: Rule[];
+  accounts: Account[];
+  onReviewRule: (id: string, approve: boolean, processInbox: boolean) => Promise<void>;
   jobs: AgentJob[];
   people: Person[];
   transactions: Transaction[];
@@ -74,6 +91,7 @@ export default function ChatPanel({
   const [unread, setUnread] = useState(false);
   const active = jobs.filter((j) => j.status === 'queued' || j.status === 'running');
   const signature = jobs.map((j) => j.id + j.status + j.response + j.activity).join('|');
+  const ruleSignature = ruleChanges.map((c) => c.id + c.status + c.matchingInboxCount).join('|');
   const historySignature = messages.map((m) => m.id + m.text).join('|');
   // Older imports stored a message per batch. Show just the last progress entry per job.
   const visible = messages.filter(
@@ -84,7 +102,25 @@ export default function ChatPanel({
   useEffect(() => {
     if (nearBottom.current) scroller.current?.scrollTo({ top: scroller.current.scrollHeight });
     else setUnread(true);
-  }, [historySignature, signature]);
+  }, [historySignature, signature, ruleSignature]);
+  const attachedJobs = new Set(
+    visible.filter((m) => m.role === 'assistant' && m.jobId).map((m) => m.jobId!),
+  );
+  const otherPending = ruleChanges.filter(
+    (c) => c.status === 'proposed' && (!c.jobId || !attachedJobs.has(c.jobId)),
+  );
+  function ruleCard(change: RuleChange) {
+    return (
+      <ChatRuleCard
+        key={change.id}
+        change={change}
+        current={rules.find((r) => r.id === change.ruleId)}
+        people={people}
+        accounts={accounts}
+        onReview={onReviewRule}
+      />
+    );
+  }
   function latest() {
     nearBottom.current = true;
     setUnread(false);
@@ -249,10 +285,24 @@ export default function ChatPanel({
                 )}
                 {m.role === 'assistant' ? <RichReply text={m.text} /> : <p>{m.text}</p>}
               </article>
+              {m.role === 'assistant' &&
+                m.jobId &&
+                !visible
+                  .slice(i + 1)
+                  .some((next) => next.jobId === m.jobId && next.role === 'assistant') &&
+                ruleChanges.filter((change) => change.jobId === m.jobId).map(ruleCard)}
               {m.role === 'user' && job && !hasReply && jobState(job)}
             </div>
           );
         })}
+        {otherPending.length > 0 && (
+          <section className="chat-pending-rules" aria-label="Other rule proposals">
+            <h4>
+              Rules awaiting your review <span>{otherPending.length}</span>
+            </h4>
+            {otherPending.map(ruleCard)}
+          </section>
+        )}
       </div>
       {unread && (
         <button className="chat-jump" onClick={latest}>

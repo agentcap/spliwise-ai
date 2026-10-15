@@ -4,6 +4,7 @@ import { invariant, AppError } from './errors';
 import { isoDate, linkedRefundShares, cents } from './money';
 import { parseStatement, normalizedDescription } from './importer';
 import { calculateDashboard } from './balances';
+import { matchingRules } from './rules';
 import type {
   Account,
   Actor,
@@ -67,9 +68,35 @@ export class Store {
     );
   }
   ruleChanges(): RuleChange[] {
-    return this.all<Raw>('SELECT * FROM rule_changes').map(
-      (r) => ({ ...r, definition: JSON.parse(r.definition as string) }) as unknown as RuleChange,
-    );
+    // Job step keys and undo snapshots already retain the origin of each rule proposal.
+    // Derive links here so earlier chat proposals also work without a data migration.
+    const origins = new Map<string, string>();
+    for (const batch of this.all<{ stepKey: string; undo: string }>(
+      "SELECT stepKey,undo FROM action_batches WHERE stepKey LIKE '%:rule:%' AND undoneAt IS NULL",
+    )) {
+      const match = /^([^:]+):\d+:rule:\d+$/.exec(batch.stepKey);
+      if (!match) continue;
+      for (const entry of JSON.parse(batch.undo) as Undo[]) {
+        if (entry.table === 'rule_changes') origins.set(entry.id, match[1]);
+      }
+    }
+    const inbox = this.transactions().filter((tx) => tx.state === 'inbox');
+    return this.all<Raw>('SELECT * FROM rule_changes').map((r) => {
+      const definition = JSON.parse(r.definition as string) as RuleDefinition;
+      const candidate: Rule = {
+        id: String(r.id),
+        title: String(r.title),
+        definition,
+        active: 1,
+        version: 1,
+      };
+      return {
+        ...r,
+        definition,
+        jobId: origins.get(String(r.id)) || null,
+        matchingInboxCount: inbox.filter((tx) => matchingRules(tx, [candidate]).length > 0).length,
+      } as unknown as RuleChange;
+    });
   }
   job(id: string): AgentJob {
     const r = this.one<Raw>('SELECT * FROM jobs WHERE id=?', id);
@@ -682,6 +709,37 @@ export class Store {
           .run(approve ? 'approved' : 'rejected', id);
       },
     );
+  }
+  reviewRuleAndProcess(
+    id: string,
+    approve: boolean,
+    processInbox = false,
+    actor: Actor = 'user',
+  ): { processed: number; jobId?: string } {
+    invariant(actor === 'user', 'Only you can activate or reject reusable rules.', 403);
+    invariant(approve || !processInbox, 'Rejecting a rule cannot start processing.');
+    return this.db
+      .transaction(() => {
+        const change = this.ruleChanges().find((r) => r.id === id);
+        invariant(change, 'Rule proposal not found.', 404);
+        this.reviewRule(id, approve, actor);
+        if (!processInbox) return { processed: 0 };
+        const candidate: Rule = {
+          id,
+          title: change.title,
+          definition: change.definition,
+          active: 1,
+          version: 1,
+        };
+        const ids = this.transactions()
+          .filter((tx) => tx.state === 'inbox' && matchingRules(tx, [candidate]).length > 0)
+          .map((tx) => tx.id);
+        return {
+          processed: ids.length,
+          jobId: ids.length ? this.enqueue('process', { ids }) : undefined,
+        };
+      })
+      .immediate();
   }
   addRepayment(
     personId: string,

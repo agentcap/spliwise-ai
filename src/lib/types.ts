@@ -85,6 +85,8 @@ export interface RuleChange {
   definition: RuleDefinition;
   status: string;
   baseVersion: number | null;
+  jobId: string | null;
+  matchingInboxCount: number;
 }
 export interface ParsedRow {
   rowNumber: number;

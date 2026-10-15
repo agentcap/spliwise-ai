@@ -554,3 +554,105 @@ it('keeps chat turns in insertion order when their timestamps match', () => {
   store.db.prepare("UPDATE messages SET createdAt='2026-10-15T20:00:00.000Z'").run();
   expect(store.snapshot().messages.map((m) => m.role)).toEqual(['user', 'assistant']);
 });
+
+describe('rule approval inside chat', () => {
+  it('links rule proposals to their originating conversation across restart and undo', () => {
+    const id = store.enqueue('chat', { text: 'Propose a rule for coffee.' });
+    applyStep(
+      store,
+      id,
+      0,
+      {
+        message: 'A rule is ready to review.',
+        updates: [],
+        rules: [
+          {
+            title: 'Coffee',
+            definition: {
+              merchant: 'COFFEE',
+              outputCategory: 'Food & Drink',
+              split: { mode: 'personal', participants: ['self'] },
+            },
+          },
+        ],
+      },
+      1,
+      100,
+    );
+    expect(store.ruleChanges()[0].jobId).toBe(id);
+    store.db.close();
+    store = new Store(openDatabase(join(dir, 'test.sqlite')));
+    const change = store.ruleChanges()[0];
+    expect(change.jobId).toBe(id);
+    store.reviewRuleAndProcess(change.id, true);
+    expect(store.ruleChanges()[0]).toMatchObject({ jobId: id, status: 'approved' });
+    store.undo();
+    expect(store.ruleChanges()[0]).toMatchObject({ jobId: id, status: 'proposed' });
+  });
+
+  it('can activate and queue only matching Inbox expenses atomically, leaving finalization manual', async () => {
+    const person = store.addPerson('Casey', 'casey');
+    const [coffee, other, final] = ingest(
+      csv(row(), row('01/11/2026', 'OTHER'), row('01/12/2026')),
+    );
+    finalize(final, propose(final, person.id));
+    const definition: RuleDefinition = {
+      merchant: 'COFFEE',
+      accountId: 'sapphire',
+      from: '2026-01-01',
+      to: '2026-01-31',
+      outputCategory: 'Food & Drink',
+      split: { mode: 'equal', participants: ['self', person.id] },
+    };
+    const change = store.proposeRule('Coffee', definition);
+    expect(store.ruleChanges().find((c) => c.id === change)?.matchingInboxCount).toBe(1);
+    const baseline = store.snapshot().dashboard.totalOutstandingCents;
+    const result = store.reviewRuleAndProcess(change, true, true);
+    expect(result.processed).toBe(1);
+    expect(store.job(result.jobId!).payload.ids).toEqual([coffee.id]);
+    await executeJob(store, claimJob(store)!);
+    expect(store.transaction(coffee.id).state).toBe('ready');
+    expect(store.transaction(other.id).state).toBe('inbox');
+    expect(store.transaction(final.id).state).toBe('finalized');
+    expect(store.snapshot().dashboard.totalOutstandingCents).toBe(baseline);
+  });
+
+  it('keeps default approval future-only, rejects without starting work, and denies agent approval', () => {
+    ingest(csv(row()));
+    const definition: RuleDefinition = {
+      merchant: 'COFFEE',
+      outputCategory: 'Food & Drink',
+      split: { mode: 'personal', participants: ['self'] },
+    };
+    const first = store.proposeRule('Coffee', definition);
+    expect(() => store.reviewRuleAndProcess(first, true, true, 'agent')).toThrow(/Only you/);
+    store.reviewRuleAndProcess(first, true);
+    expect(store.snapshot().jobs).toHaveLength(0);
+    const second = store.proposeRule('Other', definition);
+    expect(() => store.reviewRuleAndProcess(second, false, true)).toThrow(/Rejecting/);
+    store.reviewRuleAndProcess(second, false);
+    expect(store.ruleChanges().find((c) => c.id === second)?.status).toBe('rejected');
+    expect(store.snapshot().jobs).toHaveLength(0);
+  });
+
+  it('does not enqueue processing when a rule revision is stale', () => {
+    const definition: RuleDefinition = {
+      merchant: 'COFFEE',
+      outputCategory: 'Food & Drink',
+      split: { mode: 'personal', participants: ['self'] },
+    };
+    const initial = store.proposeRule('Coffee', definition);
+    store.reviewRule(initial, true);
+    const rule = store.rules()[0];
+    const older = store.proposeRule('Older edit', definition, rule.id);
+    const newer = store.proposeRule(
+      'Newer edit',
+      { ...definition, outputCategory: 'Personal' },
+      rule.id,
+    );
+    store.reviewRule(newer, true);
+    expect(() => store.reviewRuleAndProcess(older, true, true)).toThrow(/changed/);
+    expect(store.snapshot().jobs).toHaveLength(0);
+    expect(store.ruleChanges().find((c) => c.id === older)?.status).toBe('proposed');
+  });
+});

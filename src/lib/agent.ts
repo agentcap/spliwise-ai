@@ -65,6 +65,7 @@ export async function askAgent(
       .transactions()
       .filter((t) => t.state !== 'finalized' && (!allowed || allowed.has(t.id)));
     const mentions = store.resolveMentions(text);
+    const reusable = /\b(reusable rule|propose a rule|always)\b/i.test(text);
     for (const tx of target) {
       const instructions = text.startsWith('Process the selected unfinished')
         ? tx.instruction || text
@@ -82,6 +83,18 @@ export async function askAgent(
             : ('equal' as const),
           participants,
         };
+        if (reusable) {
+          if (!plan.rules.some((rule) => rule.definition.merchant === tx.description))
+            plan.rules.push({
+              title: tx.description + ' split rule',
+              definition: {
+                merchant: tx.description,
+                split: spec,
+                outputCategory: tx.bankCategory || 'Food & Drink',
+              },
+            });
+          continue;
+        }
         plan.updates.push({
           id: tx.id,
           version: tx.version,
@@ -113,6 +126,9 @@ export async function askAgent(
       (target.length > ready
         ? '\n\nPlease clarify the remaining Inbox expenses.'
         : '\n\nYour context is saved with the expense. Nothing has been finalized.');
+    if (plan.rules.length)
+      plan.message =
+        'Proposed **a reusable rule**. Review the rule card below to activate it. Nothing has been finalized.';
     onProgress?.({ text: plan.message, activity: 'Checking proposed splits…' });
     return plan;
   }

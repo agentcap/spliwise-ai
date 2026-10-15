@@ -194,9 +194,13 @@ async function handle(req: Request, context: Context): Promise<Response> {
       });
     }
     if (key === 'rules/review') {
-      const a = z.object({ id: z.string(), approve: z.boolean() }).parse(body);
-      service.reviewRule(a.id, a.approve);
-      return Response.json({ ok: true });
+      const a = z
+        .object({ id: z.string(), approve: z.boolean(), processInbox: z.boolean().optional() })
+        .parse(body);
+      return Response.json({
+        ok: true,
+        ...service.reviewRuleAndProcess(a.id, a.approve, a.processInbox),
+      });
     }
     if (key === 'repayments') {
       const a = z

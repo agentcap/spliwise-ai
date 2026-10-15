@@ -226,3 +226,102 @@ test('quick Enter instructions, mention selection, saved context, chat formattin
   expect(dinner.notes[0].text).toContain('hiking trip');
   expect(errors).toEqual([]);
 });
+
+test('approve a chat rule and process matching Inbox expenses without leaving review', async ({
+  page,
+  request,
+}) => {
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  expect(
+    (
+      await request.post('/api/people', {
+        data: { name: 'Casey', handle: 'casey', relation: 'Friend' },
+      })
+    ).ok(),
+  ).toBe(true);
+  const preview = await (
+    await request.post('/api/imports/preview', {
+      multipart: {
+        accountId: 'amex',
+        file: {
+          name: 'chat-rule-synthetic.csv',
+          mimeType: 'text/csv',
+          buffer: Buffer.from(
+            'Date,Description,Amount\n07/01/2026,CHAT RULE LUNCH,20.00\n07/02/2026,CHAT RULE LUNCH,30.00',
+          ),
+        },
+      },
+    })
+  ).json();
+  const imported = await (
+    await request.post('/api/imports/confirm', {
+      data: {
+        id: preview.id,
+        acknowledgeSkips: false,
+        keepRows: [],
+        skipInvalid: false,
+      },
+    })
+  ).json();
+  const before = (await (await request.get('/api/state')).json()) as Snapshot;
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Review workspace', exact: false }).click();
+  await page.getByLabel('Search transactions').fill('CHAT RULE LUNCH');
+  await page.getByLabel('Select CHAT RULE LUNCH', { exact: true }).first().check();
+  await page.getByRole('button', { name: 'Ask AI', exact: true }).click();
+  const panel = page.getByRole('complementary', { name: 'Split assistant' });
+  await panel
+    .getByLabel('Message the agent')
+    .fill('Propose a reusable rule: split CHAT RULE LUNCH equally with @casey.');
+  await panel.getByLabel('Message the agent').press('Enter');
+  const card = panel
+    .locator('.chat-rule-card.proposed')
+    .filter({ hasText: 'CHAT RULE LUNCH split rule' });
+  await expect(card.getByRole('button', { name: 'Approve rule', exact: true })).toBeVisible({
+    timeout: 20000,
+  });
+  await expect(
+    card.getByText('Equal split: Me, Casey · Food & Drink', { exact: true }),
+  ).toBeVisible();
+  let state = (await (await request.get('/api/state')).json()) as Snapshot;
+  expect(state.rules).toHaveLength(before.rules.length);
+  const change = state.ruleChanges.find((c) => c.title === 'CHAT RULE LUNCH split rule')!;
+  expect(change.jobId).toBe(state.messages.findLast((m) => m.role === 'user')!.jobId);
+  await card.getByRole('checkbox', { name: 'Also process 2 matching Inbox expenses' }).check();
+  await card.getByRole('button', { name: 'Approve rule', exact: true }).click();
+  await expect(panel.getByText('Rule approved', { exact: true }).last()).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Review workspace', exact: true })).toBeVisible();
+  await expect
+    .poll(
+      async () => {
+        const snapshot = (await (await request.get('/api/state')).json()) as Snapshot;
+        return snapshot.transactions.filter(
+          (tx) => imported.ids.includes(tx.id) && tx.state === 'ready',
+        ).length;
+      },
+      { timeout: 20000 },
+    )
+    .toBe(2);
+  state = (await (await request.get('/api/state')).json()) as Snapshot;
+  expect(state.dashboard.finalizedCount).toBe(before.dashboard.finalizedCount);
+  expect(state.rules).toHaveLength(before.rules.length + 1);
+  await panel
+    .getByLabel('Message the agent')
+    .fill('Propose a reusable rule: make the selected expenses my personal expense.');
+  await panel.getByLabel('Message the agent').press('Enter');
+  const rejectedCard = panel.locator('.chat-rule-card.proposed').last();
+  await expect(rejectedCard.getByRole('button', { name: 'Reject', exact: true })).toBeVisible({
+    timeout: 20000,
+  });
+  await rejectedCard.getByRole('button', { name: 'Reject', exact: true }).click();
+  await expect(panel.getByText('Rule rejected', { exact: true })).toBeVisible();
+  state = (await (await request.get('/api/state')).json()) as Snapshot;
+  expect(state.rules).toHaveLength(before.rules.length + 1);
+  await page.reload();
+  await page.getByRole('button', { name: 'Review workspace', exact: false }).click();
+  await page.getByRole('button', { name: 'Ask AI', exact: true }).click();
+  await expect(panel.getByText('Rule approved', { exact: true }).last()).toBeVisible();
+  await expect(panel.getByText('Rule rejected', { exact: true })).toBeVisible();
+  expect(errors).toEqual([]);
+});

@@ -184,6 +184,20 @@ export default function Workspace() {
   async function retryJob(id: string) {
     await action(() => api('jobs/' + id + '/retry', {}));
   }
+  async function reviewChatRule(id: string, approve: boolean, processInbox: boolean) {
+    const result = await api<{ processed: number }>('rules/review', { id, approve, processInbox });
+    await fetchData();
+    setNotice({
+      text: !approve
+        ? 'Rule proposal rejected.'
+        : result.processed
+          ? 'Rule activated. Processing ' +
+            result.processed +
+            ' matching Inbox expense' +
+            (result.processed === 1 ? '.' : 's.')
+          : 'Rule activated for future processing.',
+    });
+  }
   if (!data)
     return (
       <div className="initial-loading">
@@ -1305,6 +1319,10 @@ export default function Workspace() {
         {chatOpen && (
           <ChatPanel
             messages={data.messages}
+            ruleChanges={data.ruleChanges}
+            rules={data.rules}
+            accounts={data.accounts}
+            onReviewRule={reviewChatRule}
             jobs={data.jobs}
             people={data.people}
             transactions={data.transactions}
