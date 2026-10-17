@@ -21,3 +21,4 @@ secrets/
 .restore-drills/
 
 .next-production-check/
+__pycache__/

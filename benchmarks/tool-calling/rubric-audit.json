@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "excludedCases": {
+    "personal-04": "Fixture audit: the prompt names a selected badminton payment, but the synthetic selected record is CAFE lunch. Clarification and following the selected record are both defensible; exclude this inconsistent fixture from headline accuracy for every model. Keep its raw trace."
+  },
+  "optionalFacts": {
+    "web-rule-03": {
+      "quote": "This is for food at my office.",
+      "textContains": ["Oracle Redwood", "food", "office"],
+      "reason": "The original user message contains both an ongoing allocation instruction and a descriptive merchant fact. Saving that exact source-grounded fact is valid in addition to the rule."
+    }
+  },
+  "procedure": "Audit corrections apply equally to all models. Raw strict scores and all traces remain available. No model output is used as its own expected answer. The personal-04 fixture issue and optional office-food fact were identified during initial protocol validation before the retained hosted run completed."
+}

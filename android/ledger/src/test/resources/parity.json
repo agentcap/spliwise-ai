@@ -1,0 +1,5538 @@
+{
+  "allocations": [
+    {
+      "total": 1,
+      "ids": [
+        "self",
+        "alex"
+      ],
+      "weights": [
+        1,
+        1
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": 1
+        }
+      ]
+    },
+    {
+      "total": 1,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        1,
+        1,
+        1
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": 1
+        },
+        {
+          "personId": "zara",
+          "amountCents": 0
+        }
+      ]
+    },
+    {
+      "total": 1,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        0,
+        1,
+        2
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": 0
+        },
+        {
+          "personId": "zara",
+          "amountCents": 1
+        }
+      ]
+    },
+    {
+      "total": 1,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        3333,
+        3333,
+        3334
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": 0
+        },
+        {
+          "personId": "zara",
+          "amountCents": 1
+        }
+      ]
+    },
+    {
+      "total": 1,
+      "ids": [
+        "self",
+        "alex"
+      ],
+      "weights": [
+        1,
+        999999999
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": 1
+        }
+      ]
+    },
+    {
+      "total": -1,
+      "ids": [
+        "self",
+        "alex"
+      ],
+      "weights": [
+        1,
+        1
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": -1
+        }
+      ]
+    },
+    {
+      "total": -1,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        1,
+        1,
+        1
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": -1
+        },
+        {
+          "personId": "zara",
+          "amountCents": 0
+        }
+      ]
+    },
+    {
+      "total": -1,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        0,
+        1,
+        2
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": 0
+        },
+        {
+          "personId": "zara",
+          "amountCents": -1
+        }
+      ]
+    },
+    {
+      "total": -1,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        3333,
+        3333,
+        3334
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": 0
+        },
+        {
+          "personId": "zara",
+          "amountCents": -1
+        }
+      ]
+    },
+    {
+      "total": -1,
+      "ids": [
+        "self",
+        "alex"
+      ],
+      "weights": [
+        1,
+        999999999
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": -1
+        }
+      ]
+    },
+    {
+      "total": 2,
+      "ids": [
+        "self",
+        "alex"
+      ],
+      "weights": [
+        1,
+        1
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 1
+        },
+        {
+          "personId": "alex",
+          "amountCents": 1
+        }
+      ]
+    },
+    {
+      "total": 2,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        1,
+        1,
+        1
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 1
+        },
+        {
+          "personId": "alex",
+          "amountCents": 1
+        },
+        {
+          "personId": "zara",
+          "amountCents": 0
+        }
+      ]
+    },
+    {
+      "total": 2,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        0,
+        1,
+        2
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": 1
+        },
+        {
+          "personId": "zara",
+          "amountCents": 1
+        }
+      ]
+    },
+    {
+      "total": 2,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        3333,
+        3333,
+        3334
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": 1
+        },
+        {
+          "personId": "zara",
+          "amountCents": 1
+        }
+      ]
+    },
+    {
+      "total": 2,
+      "ids": [
+        "self",
+        "alex"
+      ],
+      "weights": [
+        1,
+        999999999
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": 2
+        }
+      ]
+    },
+    {
+      "total": -2,
+      "ids": [
+        "self",
+        "alex"
+      ],
+      "weights": [
+        1,
+        1
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": -1
+        },
+        {
+          "personId": "alex",
+          "amountCents": -1
+        }
+      ]
+    },
+    {
+      "total": -2,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        1,
+        1,
+        1
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": -1
+        },
+        {
+          "personId": "alex",
+          "amountCents": -1
+        },
+        {
+          "personId": "zara",
+          "amountCents": 0
+        }
+      ]
+    },
+    {
+      "total": -2,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        0,
+        1,
+        2
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": -1
+        },
+        {
+          "personId": "zara",
+          "amountCents": -1
+        }
+      ]
+    },
+    {
+      "total": -2,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        3333,
+        3333,
+        3334
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": -1
+        },
+        {
+          "personId": "zara",
+          "amountCents": -1
+        }
+      ]
+    },
+    {
+      "total": -2,
+      "ids": [
+        "self",
+        "alex"
+      ],
+      "weights": [
+        1,
+        999999999
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": -2
+        }
+      ]
+    },
+    {
+      "total": 3,
+      "ids": [
+        "self",
+        "alex"
+      ],
+      "weights": [
+        1,
+        1
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 1
+        },
+        {
+          "personId": "alex",
+          "amountCents": 2
+        }
+      ]
+    },
+    {
+      "total": 3,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        1,
+        1,
+        1
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 1
+        },
+        {
+          "personId": "alex",
+          "amountCents": 1
+        },
+        {
+          "personId": "zara",
+          "amountCents": 1
+        }
+      ]
+    },
+    {
+      "total": 3,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        0,
+        1,
+        2
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": 1
+        },
+        {
+          "personId": "zara",
+          "amountCents": 2
+        }
+      ]
+    },
+    {
+      "total": 3,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        3333,
+        3333,
+        3334
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 1
+        },
+        {
+          "personId": "alex",
+          "amountCents": 1
+        },
+        {
+          "personId": "zara",
+          "amountCents": 1
+        }
+      ]
+    },
+    {
+      "total": 3,
+      "ids": [
+        "self",
+        "alex"
+      ],
+      "weights": [
+        1,
+        999999999
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": 3
+        }
+      ]
+    },
+    {
+      "total": -3,
+      "ids": [
+        "self",
+        "alex"
+      ],
+      "weights": [
+        1,
+        1
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": -1
+        },
+        {
+          "personId": "alex",
+          "amountCents": -2
+        }
+      ]
+    },
+    {
+      "total": -3,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        1,
+        1,
+        1
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": -1
+        },
+        {
+          "personId": "alex",
+          "amountCents": -1
+        },
+        {
+          "personId": "zara",
+          "amountCents": -1
+        }
+      ]
+    },
+    {
+      "total": -3,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        0,
+        1,
+        2
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": -1
+        },
+        {
+          "personId": "zara",
+          "amountCents": -2
+        }
+      ]
+    },
+    {
+      "total": -3,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        3333,
+        3333,
+        3334
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": -1
+        },
+        {
+          "personId": "alex",
+          "amountCents": -1
+        },
+        {
+          "personId": "zara",
+          "amountCents": -1
+        }
+      ]
+    },
+    {
+      "total": -3,
+      "ids": [
+        "self",
+        "alex"
+      ],
+      "weights": [
+        1,
+        999999999
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": -3
+        }
+      ]
+    },
+    {
+      "total": 7,
+      "ids": [
+        "self",
+        "alex"
+      ],
+      "weights": [
+        1,
+        1
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 3
+        },
+        {
+          "personId": "alex",
+          "amountCents": 4
+        }
+      ]
+    },
+    {
+      "total": 7,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        1,
+        1,
+        1
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 2
+        },
+        {
+          "personId": "alex",
+          "amountCents": 3
+        },
+        {
+          "personId": "zara",
+          "amountCents": 2
+        }
+      ]
+    },
+    {
+      "total": 7,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        0,
+        1,
+        2
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": 2
+        },
+        {
+          "personId": "zara",
+          "amountCents": 5
+        }
+      ]
+    },
+    {
+      "total": 7,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        3333,
+        3333,
+        3334
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 2
+        },
+        {
+          "personId": "alex",
+          "amountCents": 2
+        },
+        {
+          "personId": "zara",
+          "amountCents": 3
+        }
+      ]
+    },
+    {
+      "total": 7,
+      "ids": [
+        "self",
+        "alex"
+      ],
+      "weights": [
+        1,
+        999999999
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": 7
+        }
+      ]
+    },
+    {
+      "total": -7,
+      "ids": [
+        "self",
+        "alex"
+      ],
+      "weights": [
+        1,
+        1
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": -3
+        },
+        {
+          "personId": "alex",
+          "amountCents": -4
+        }
+      ]
+    },
+    {
+      "total": -7,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        1,
+        1,
+        1
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": -2
+        },
+        {
+          "personId": "alex",
+          "amountCents": -3
+        },
+        {
+          "personId": "zara",
+          "amountCents": -2
+        }
+      ]
+    },
+    {
+      "total": -7,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        0,
+        1,
+        2
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": -2
+        },
+        {
+          "personId": "zara",
+          "amountCents": -5
+        }
+      ]
+    },
+    {
+      "total": -7,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        3333,
+        3333,
+        3334
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": -2
+        },
+        {
+          "personId": "alex",
+          "amountCents": -2
+        },
+        {
+          "personId": "zara",
+          "amountCents": -3
+        }
+      ]
+    },
+    {
+      "total": -7,
+      "ids": [
+        "self",
+        "alex"
+      ],
+      "weights": [
+        1,
+        999999999
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": -7
+        }
+      ]
+    },
+    {
+      "total": 99,
+      "ids": [
+        "self",
+        "alex"
+      ],
+      "weights": [
+        1,
+        1
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 49
+        },
+        {
+          "personId": "alex",
+          "amountCents": 50
+        }
+      ]
+    },
+    {
+      "total": 99,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        1,
+        1,
+        1
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 33
+        },
+        {
+          "personId": "alex",
+          "amountCents": 33
+        },
+        {
+          "personId": "zara",
+          "amountCents": 33
+        }
+      ]
+    },
+    {
+      "total": 99,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        0,
+        1,
+        2
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": 33
+        },
+        {
+          "personId": "zara",
+          "amountCents": 66
+        }
+      ]
+    },
+    {
+      "total": 99,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        3333,
+        3333,
+        3334
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 33
+        },
+        {
+          "personId": "alex",
+          "amountCents": 33
+        },
+        {
+          "personId": "zara",
+          "amountCents": 33
+        }
+      ]
+    },
+    {
+      "total": 99,
+      "ids": [
+        "self",
+        "alex"
+      ],
+      "weights": [
+        1,
+        999999999
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": 99
+        }
+      ]
+    },
+    {
+      "total": -99,
+      "ids": [
+        "self",
+        "alex"
+      ],
+      "weights": [
+        1,
+        1
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": -49
+        },
+        {
+          "personId": "alex",
+          "amountCents": -50
+        }
+      ]
+    },
+    {
+      "total": -99,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        1,
+        1,
+        1
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": -33
+        },
+        {
+          "personId": "alex",
+          "amountCents": -33
+        },
+        {
+          "personId": "zara",
+          "amountCents": -33
+        }
+      ]
+    },
+    {
+      "total": -99,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        0,
+        1,
+        2
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": -33
+        },
+        {
+          "personId": "zara",
+          "amountCents": -66
+        }
+      ]
+    },
+    {
+      "total": -99,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        3333,
+        3333,
+        3334
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": -33
+        },
+        {
+          "personId": "alex",
+          "amountCents": -33
+        },
+        {
+          "personId": "zara",
+          "amountCents": -33
+        }
+      ]
+    },
+    {
+      "total": -99,
+      "ids": [
+        "self",
+        "alex"
+      ],
+      "weights": [
+        1,
+        999999999
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": -99
+        }
+      ]
+    },
+    {
+      "total": 100,
+      "ids": [
+        "self",
+        "alex"
+      ],
+      "weights": [
+        1,
+        1
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 50
+        },
+        {
+          "personId": "alex",
+          "amountCents": 50
+        }
+      ]
+    },
+    {
+      "total": 100,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        1,
+        1,
+        1
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 33
+        },
+        {
+          "personId": "alex",
+          "amountCents": 34
+        },
+        {
+          "personId": "zara",
+          "amountCents": 33
+        }
+      ]
+    },
+    {
+      "total": 100,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        0,
+        1,
+        2
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": 33
+        },
+        {
+          "personId": "zara",
+          "amountCents": 67
+        }
+      ]
+    },
+    {
+      "total": 100,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        3333,
+        3333,
+        3334
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 33
+        },
+        {
+          "personId": "alex",
+          "amountCents": 33
+        },
+        {
+          "personId": "zara",
+          "amountCents": 34
+        }
+      ]
+    },
+    {
+      "total": 100,
+      "ids": [
+        "self",
+        "alex"
+      ],
+      "weights": [
+        1,
+        999999999
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": 100
+        }
+      ]
+    },
+    {
+      "total": -100,
+      "ids": [
+        "self",
+        "alex"
+      ],
+      "weights": [
+        1,
+        1
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": -50
+        },
+        {
+          "personId": "alex",
+          "amountCents": -50
+        }
+      ]
+    },
+    {
+      "total": -100,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        1,
+        1,
+        1
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": -33
+        },
+        {
+          "personId": "alex",
+          "amountCents": -34
+        },
+        {
+          "personId": "zara",
+          "amountCents": -33
+        }
+      ]
+    },
+    {
+      "total": -100,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        0,
+        1,
+        2
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": -33
+        },
+        {
+          "personId": "zara",
+          "amountCents": -67
+        }
+      ]
+    },
+    {
+      "total": -100,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        3333,
+        3333,
+        3334
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": -33
+        },
+        {
+          "personId": "alex",
+          "amountCents": -33
+        },
+        {
+          "personId": "zara",
+          "amountCents": -34
+        }
+      ]
+    },
+    {
+      "total": -100,
+      "ids": [
+        "self",
+        "alex"
+      ],
+      "weights": [
+        1,
+        999999999
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": -100
+        }
+      ]
+    },
+    {
+      "total": 101,
+      "ids": [
+        "self",
+        "alex"
+      ],
+      "weights": [
+        1,
+        1
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 50
+        },
+        {
+          "personId": "alex",
+          "amountCents": 51
+        }
+      ]
+    },
+    {
+      "total": 101,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        1,
+        1,
+        1
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 34
+        },
+        {
+          "personId": "alex",
+          "amountCents": 34
+        },
+        {
+          "personId": "zara",
+          "amountCents": 33
+        }
+      ]
+    },
+    {
+      "total": 101,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        0,
+        1,
+        2
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": 34
+        },
+        {
+          "personId": "zara",
+          "amountCents": 67
+        }
+      ]
+    },
+    {
+      "total": 101,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        3333,
+        3333,
+        3334
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 33
+        },
+        {
+          "personId": "alex",
+          "amountCents": 34
+        },
+        {
+          "personId": "zara",
+          "amountCents": 34
+        }
+      ]
+    },
+    {
+      "total": 101,
+      "ids": [
+        "self",
+        "alex"
+      ],
+      "weights": [
+        1,
+        999999999
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": 101
+        }
+      ]
+    },
+    {
+      "total": -101,
+      "ids": [
+        "self",
+        "alex"
+      ],
+      "weights": [
+        1,
+        1
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": -50
+        },
+        {
+          "personId": "alex",
+          "amountCents": -51
+        }
+      ]
+    },
+    {
+      "total": -101,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        1,
+        1,
+        1
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": -34
+        },
+        {
+          "personId": "alex",
+          "amountCents": -34
+        },
+        {
+          "personId": "zara",
+          "amountCents": -33
+        }
+      ]
+    },
+    {
+      "total": -101,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        0,
+        1,
+        2
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": -34
+        },
+        {
+          "personId": "zara",
+          "amountCents": -67
+        }
+      ]
+    },
+    {
+      "total": -101,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        3333,
+        3333,
+        3334
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": -33
+        },
+        {
+          "personId": "alex",
+          "amountCents": -34
+        },
+        {
+          "personId": "zara",
+          "amountCents": -34
+        }
+      ]
+    },
+    {
+      "total": -101,
+      "ids": [
+        "self",
+        "alex"
+      ],
+      "weights": [
+        1,
+        999999999
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": -101
+        }
+      ]
+    },
+    {
+      "total": 10001,
+      "ids": [
+        "self",
+        "alex"
+      ],
+      "weights": [
+        1,
+        1
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 5000
+        },
+        {
+          "personId": "alex",
+          "amountCents": 5001
+        }
+      ]
+    },
+    {
+      "total": 10001,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        1,
+        1,
+        1
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 3334
+        },
+        {
+          "personId": "alex",
+          "amountCents": 3334
+        },
+        {
+          "personId": "zara",
+          "amountCents": 3333
+        }
+      ]
+    },
+    {
+      "total": 10001,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        0,
+        1,
+        2
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": 3334
+        },
+        {
+          "personId": "zara",
+          "amountCents": 6667
+        }
+      ]
+    },
+    {
+      "total": 10001,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        3333,
+        3333,
+        3334
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 3333
+        },
+        {
+          "personId": "alex",
+          "amountCents": 3333
+        },
+        {
+          "personId": "zara",
+          "amountCents": 3335
+        }
+      ]
+    },
+    {
+      "total": 10001,
+      "ids": [
+        "self",
+        "alex"
+      ],
+      "weights": [
+        1,
+        999999999
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": 10001
+        }
+      ]
+    },
+    {
+      "total": -10001,
+      "ids": [
+        "self",
+        "alex"
+      ],
+      "weights": [
+        1,
+        1
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": -5000
+        },
+        {
+          "personId": "alex",
+          "amountCents": -5001
+        }
+      ]
+    },
+    {
+      "total": -10001,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        1,
+        1,
+        1
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": -3334
+        },
+        {
+          "personId": "alex",
+          "amountCents": -3334
+        },
+        {
+          "personId": "zara",
+          "amountCents": -3333
+        }
+      ]
+    },
+    {
+      "total": -10001,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        0,
+        1,
+        2
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": -3334
+        },
+        {
+          "personId": "zara",
+          "amountCents": -6667
+        }
+      ]
+    },
+    {
+      "total": -10001,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        3333,
+        3333,
+        3334
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": -3333
+        },
+        {
+          "personId": "alex",
+          "amountCents": -3333
+        },
+        {
+          "personId": "zara",
+          "amountCents": -3335
+        }
+      ]
+    },
+    {
+      "total": -10001,
+      "ids": [
+        "self",
+        "alex"
+      ],
+      "weights": [
+        1,
+        999999999
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": -10001
+        }
+      ]
+    },
+    {
+      "total": 999999,
+      "ids": [
+        "self",
+        "alex"
+      ],
+      "weights": [
+        1,
+        1
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 499999
+        },
+        {
+          "personId": "alex",
+          "amountCents": 500000
+        }
+      ]
+    },
+    {
+      "total": 999999,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        1,
+        1,
+        1
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 333333
+        },
+        {
+          "personId": "alex",
+          "amountCents": 333333
+        },
+        {
+          "personId": "zara",
+          "amountCents": 333333
+        }
+      ]
+    },
+    {
+      "total": 999999,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        0,
+        1,
+        2
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": 333333
+        },
+        {
+          "personId": "zara",
+          "amountCents": 666666
+        }
+      ]
+    },
+    {
+      "total": 999999,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        3333,
+        3333,
+        3334
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 333300
+        },
+        {
+          "personId": "alex",
+          "amountCents": 333300
+        },
+        {
+          "personId": "zara",
+          "amountCents": 333399
+        }
+      ]
+    },
+    {
+      "total": 999999,
+      "ids": [
+        "self",
+        "alex"
+      ],
+      "weights": [
+        1,
+        999999999
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": 999999
+        }
+      ]
+    },
+    {
+      "total": -999999,
+      "ids": [
+        "self",
+        "alex"
+      ],
+      "weights": [
+        1,
+        1
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": -499999
+        },
+        {
+          "personId": "alex",
+          "amountCents": -500000
+        }
+      ]
+    },
+    {
+      "total": -999999,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        1,
+        1,
+        1
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": -333333
+        },
+        {
+          "personId": "alex",
+          "amountCents": -333333
+        },
+        {
+          "personId": "zara",
+          "amountCents": -333333
+        }
+      ]
+    },
+    {
+      "total": -999999,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        0,
+        1,
+        2
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": -333333
+        },
+        {
+          "personId": "zara",
+          "amountCents": -666666
+        }
+      ]
+    },
+    {
+      "total": -999999,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        3333,
+        3333,
+        3334
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": -333300
+        },
+        {
+          "personId": "alex",
+          "amountCents": -333300
+        },
+        {
+          "personId": "zara",
+          "amountCents": -333399
+        }
+      ]
+    },
+    {
+      "total": -999999,
+      "ids": [
+        "self",
+        "alex"
+      ],
+      "weights": [
+        1,
+        999999999
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": -999999
+        }
+      ]
+    },
+    {
+      "total": 1000000000000,
+      "ids": [
+        "self",
+        "alex"
+      ],
+      "weights": [
+        1,
+        1
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 500000000000
+        },
+        {
+          "personId": "alex",
+          "amountCents": 500000000000
+        }
+      ]
+    },
+    {
+      "total": 1000000000000,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        1,
+        1,
+        1
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 333333333333
+        },
+        {
+          "personId": "alex",
+          "amountCents": 333333333334
+        },
+        {
+          "personId": "zara",
+          "amountCents": 333333333333
+        }
+      ]
+    },
+    {
+      "total": 1000000000000,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        0,
+        1,
+        2
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": 333333333333
+        },
+        {
+          "personId": "zara",
+          "amountCents": 666666666667
+        }
+      ]
+    },
+    {
+      "total": 1000000000000,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        3333,
+        3333,
+        3334
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 333300000000
+        },
+        {
+          "personId": "alex",
+          "amountCents": 333300000000
+        },
+        {
+          "personId": "zara",
+          "amountCents": 333400000000
+        }
+      ]
+    },
+    {
+      "total": 1000000000000,
+      "ids": [
+        "self",
+        "alex"
+      ],
+      "weights": [
+        1,
+        999999999
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 1000
+        },
+        {
+          "personId": "alex",
+          "amountCents": 999999999000
+        }
+      ]
+    },
+    {
+      "total": -1000000000000,
+      "ids": [
+        "self",
+        "alex"
+      ],
+      "weights": [
+        1,
+        1
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": -500000000000
+        },
+        {
+          "personId": "alex",
+          "amountCents": -500000000000
+        }
+      ]
+    },
+    {
+      "total": -1000000000000,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        1,
+        1,
+        1
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": -333333333333
+        },
+        {
+          "personId": "alex",
+          "amountCents": -333333333334
+        },
+        {
+          "personId": "zara",
+          "amountCents": -333333333333
+        }
+      ]
+    },
+    {
+      "total": -1000000000000,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        0,
+        1,
+        2
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": -333333333333
+        },
+        {
+          "personId": "zara",
+          "amountCents": -666666666667
+        }
+      ]
+    },
+    {
+      "total": -1000000000000,
+      "ids": [
+        "self",
+        "alex",
+        "zara"
+      ],
+      "weights": [
+        3333,
+        3333,
+        3334
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": -333300000000
+        },
+        {
+          "personId": "alex",
+          "amountCents": -333300000000
+        },
+        {
+          "personId": "zara",
+          "amountCents": -333400000000
+        }
+      ]
+    },
+    {
+      "total": -1000000000000,
+      "ids": [
+        "self",
+        "alex"
+      ],
+      "weights": [
+        1,
+        999999999
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": -1000
+        },
+        {
+          "personId": "alex",
+          "amountCents": -999999999000
+        }
+      ]
+    }
+  ],
+  "refunds": [
+    {
+      "original": [
+        {
+          "personId": "self",
+          "amountCents": 1
+        },
+        {
+          "personId": "alex",
+          "amountCents": 1
+        },
+        {
+          "personId": "zara",
+          "amountCents": 1
+        }
+      ],
+      "amount": -1,
+      "previous": [],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": -1
+        },
+        {
+          "personId": "zara",
+          "amountCents": 0
+        }
+      ]
+    },
+    {
+      "original": [
+        {
+          "personId": "self",
+          "amountCents": 1
+        },
+        {
+          "personId": "alex",
+          "amountCents": 1
+        },
+        {
+          "personId": "zara",
+          "amountCents": 1
+        }
+      ],
+      "amount": -1,
+      "previous": [
+        [
+          {
+            "personId": "self",
+            "amountCents": 0
+          },
+          {
+            "personId": "alex",
+            "amountCents": -1
+          },
+          {
+            "personId": "zara",
+            "amountCents": 0
+          }
+        ]
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": -1
+        },
+        {
+          "personId": "alex",
+          "amountCents": 0
+        },
+        {
+          "personId": "zara",
+          "amountCents": 0
+        }
+      ]
+    },
+    {
+      "original": [
+        {
+          "personId": "self",
+          "amountCents": 1
+        },
+        {
+          "personId": "alex",
+          "amountCents": 1
+        },
+        {
+          "personId": "zara",
+          "amountCents": 1
+        }
+      ],
+      "amount": -1,
+      "previous": [
+        [
+          {
+            "personId": "self",
+            "amountCents": 0
+          },
+          {
+            "personId": "alex",
+            "amountCents": -1
+          },
+          {
+            "personId": "zara",
+            "amountCents": 0
+          }
+        ],
+        [
+          {
+            "personId": "self",
+            "amountCents": -1
+          },
+          {
+            "personId": "alex",
+            "amountCents": 0
+          },
+          {
+            "personId": "zara",
+            "amountCents": 0
+          }
+        ]
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": 0
+        },
+        {
+          "personId": "zara",
+          "amountCents": -1
+        }
+      ]
+    },
+    {
+      "original": [
+        {
+          "personId": "self",
+          "amountCents": 2
+        },
+        {
+          "personId": "alex",
+          "amountCents": 3
+        },
+        {
+          "personId": "zara",
+          "amountCents": 2
+        }
+      ],
+      "amount": -1,
+      "previous": [],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": -1
+        },
+        {
+          "personId": "zara",
+          "amountCents": 0
+        }
+      ]
+    },
+    {
+      "original": [
+        {
+          "personId": "self",
+          "amountCents": 2
+        },
+        {
+          "personId": "alex",
+          "amountCents": 3
+        },
+        {
+          "personId": "zara",
+          "amountCents": 2
+        }
+      ],
+      "amount": -1,
+      "previous": [
+        [
+          {
+            "personId": "self",
+            "amountCents": 0
+          },
+          {
+            "personId": "alex",
+            "amountCents": -1
+          },
+          {
+            "personId": "zara",
+            "amountCents": 0
+          }
+        ]
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": -1
+        },
+        {
+          "personId": "alex",
+          "amountCents": 0
+        },
+        {
+          "personId": "zara",
+          "amountCents": 0
+        }
+      ]
+    },
+    {
+      "original": [
+        {
+          "personId": "self",
+          "amountCents": 2
+        },
+        {
+          "personId": "alex",
+          "amountCents": 3
+        },
+        {
+          "personId": "zara",
+          "amountCents": 2
+        }
+      ],
+      "amount": -5,
+      "previous": [
+        [
+          {
+            "personId": "self",
+            "amountCents": 0
+          },
+          {
+            "personId": "alex",
+            "amountCents": -1
+          },
+          {
+            "personId": "zara",
+            "amountCents": 0
+          }
+        ],
+        [
+          {
+            "personId": "self",
+            "amountCents": -1
+          },
+          {
+            "personId": "alex",
+            "amountCents": 0
+          },
+          {
+            "personId": "zara",
+            "amountCents": 0
+          }
+        ]
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": -1
+        },
+        {
+          "personId": "alex",
+          "amountCents": -2
+        },
+        {
+          "personId": "zara",
+          "amountCents": -2
+        }
+      ]
+    },
+    {
+      "original": [
+        {
+          "personId": "self",
+          "amountCents": 34
+        },
+        {
+          "personId": "alex",
+          "amountCents": 34
+        },
+        {
+          "personId": "zara",
+          "amountCents": 33
+        }
+      ],
+      "amount": -1,
+      "previous": [],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": -1
+        },
+        {
+          "personId": "zara",
+          "amountCents": 0
+        }
+      ]
+    },
+    {
+      "original": [
+        {
+          "personId": "self",
+          "amountCents": 34
+        },
+        {
+          "personId": "alex",
+          "amountCents": 34
+        },
+        {
+          "personId": "zara",
+          "amountCents": 33
+        }
+      ],
+      "amount": -1,
+      "previous": [
+        [
+          {
+            "personId": "self",
+            "amountCents": 0
+          },
+          {
+            "personId": "alex",
+            "amountCents": -1
+          },
+          {
+            "personId": "zara",
+            "amountCents": 0
+          }
+        ]
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": -1
+        },
+        {
+          "personId": "alex",
+          "amountCents": 0
+        },
+        {
+          "personId": "zara",
+          "amountCents": 0
+        }
+      ]
+    },
+    {
+      "original": [
+        {
+          "personId": "self",
+          "amountCents": 34
+        },
+        {
+          "personId": "alex",
+          "amountCents": 34
+        },
+        {
+          "personId": "zara",
+          "amountCents": 33
+        }
+      ],
+      "amount": -99,
+      "previous": [
+        [
+          {
+            "personId": "self",
+            "amountCents": 0
+          },
+          {
+            "personId": "alex",
+            "amountCents": -1
+          },
+          {
+            "personId": "zara",
+            "amountCents": 0
+          }
+        ],
+        [
+          {
+            "personId": "self",
+            "amountCents": -1
+          },
+          {
+            "personId": "alex",
+            "amountCents": 0
+          },
+          {
+            "personId": "zara",
+            "amountCents": 0
+          }
+        ]
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": -33
+        },
+        {
+          "personId": "alex",
+          "amountCents": -33
+        },
+        {
+          "personId": "zara",
+          "amountCents": -33
+        }
+      ]
+    },
+    {
+      "original": [
+        {
+          "personId": "self",
+          "amountCents": 3334
+        },
+        {
+          "personId": "alex",
+          "amountCents": 3334
+        },
+        {
+          "personId": "zara",
+          "amountCents": 3333
+        }
+      ],
+      "amount": -1,
+      "previous": [],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": 0
+        },
+        {
+          "personId": "alex",
+          "amountCents": -1
+        },
+        {
+          "personId": "zara",
+          "amountCents": 0
+        }
+      ]
+    },
+    {
+      "original": [
+        {
+          "personId": "self",
+          "amountCents": 3334
+        },
+        {
+          "personId": "alex",
+          "amountCents": 3334
+        },
+        {
+          "personId": "zara",
+          "amountCents": 3333
+        }
+      ],
+      "amount": -1,
+      "previous": [
+        [
+          {
+            "personId": "self",
+            "amountCents": 0
+          },
+          {
+            "personId": "alex",
+            "amountCents": -1
+          },
+          {
+            "personId": "zara",
+            "amountCents": 0
+          }
+        ]
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": -1
+        },
+        {
+          "personId": "alex",
+          "amountCents": 0
+        },
+        {
+          "personId": "zara",
+          "amountCents": 0
+        }
+      ]
+    },
+    {
+      "original": [
+        {
+          "personId": "self",
+          "amountCents": 3334
+        },
+        {
+          "personId": "alex",
+          "amountCents": 3334
+        },
+        {
+          "personId": "zara",
+          "amountCents": 3333
+        }
+      ],
+      "amount": -9999,
+      "previous": [
+        [
+          {
+            "personId": "self",
+            "amountCents": 0
+          },
+          {
+            "personId": "alex",
+            "amountCents": -1
+          },
+          {
+            "personId": "zara",
+            "amountCents": 0
+          }
+        ],
+        [
+          {
+            "personId": "self",
+            "amountCents": -1
+          },
+          {
+            "personId": "alex",
+            "amountCents": 0
+          },
+          {
+            "personId": "zara",
+            "amountCents": 0
+          }
+        ]
+      ],
+      "expected": [
+        {
+          "personId": "self",
+          "amountCents": -3333
+        },
+        {
+          "personId": "alex",
+          "amountCents": -3333
+        },
+        {
+          "personId": "zara",
+          "amountCents": -3333
+        }
+      ]
+    }
+  ],
+  "balanceCases": [
+    {
+      "transactions": [
+        {
+          "id": "a",
+          "date": "2026-01-01",
+          "description": "First",
+          "amountCents": 101,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "self",
+                "amountCents": 34
+              },
+              {
+                "personId": "alex",
+                "amountCents": 34
+              },
+              {
+                "personId": "zara",
+                "amountCents": 33
+              }
+            ],
+            "category": "Food"
+          }
+        },
+        {
+          "id": "b",
+          "date": "2026-01-01",
+          "description": "Second",
+          "amountCents": 700,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "self",
+                "amountCents": 350
+              },
+              {
+                "personId": "alex",
+                "amountCents": 350
+              }
+            ],
+            "category": "Travel"
+          }
+        },
+        {
+          "id": "c",
+          "date": "2026-02-01",
+          "description": "Third",
+          "amountCents": 400,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "self",
+                "amountCents": 200
+              },
+              {
+                "personId": "alex",
+                "amountCents": 200
+              }
+            ],
+            "category": "Travel"
+          }
+        },
+        {
+          "id": "d",
+          "date": "2026-02-02",
+          "description": "Refund",
+          "amountCents": -100,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "self",
+                "amountCents": -50
+              },
+              {
+                "personId": "alex",
+                "amountCents": -50
+              }
+            ],
+            "category": "Travel",
+            "refundOf": "b"
+          }
+        },
+        {
+          "id": "e",
+          "date": "2026-02-03",
+          "description": "Unlinked refund",
+          "amountCents": -50,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "alex",
+                "amountCents": -50
+              }
+            ],
+            "category": "Travel"
+          }
+        },
+        {
+          "id": "f",
+          "date": "2026-01-01",
+          "description": "Unapproved",
+          "amountCents": 10000,
+          "state": "ready",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "alex",
+                "amountCents": 10000
+              }
+            ],
+            "category": "Food"
+          }
+        }
+      ],
+      "people": [
+        {
+          "id": "self",
+          "name": "Me",
+          "handle": "me",
+          "relation": "",
+          "isSelf": 1
+        },
+        {
+          "id": "alex",
+          "name": "Alex",
+          "handle": "alex",
+          "relation": "Friend",
+          "isSelf": 0
+        },
+        {
+          "id": "zara",
+          "name": "Zara",
+          "handle": "zara",
+          "relation": "Friend",
+          "isSelf": 0
+        }
+      ],
+      "repayments": [
+        {
+          "id": "pay",
+          "personId": "alex",
+          "date": "2026-03-01",
+          "amountCents": 0,
+          "direction": "received",
+          "note": ""
+        },
+        {
+          "id": "return",
+          "personId": "alex",
+          "date": "2026-03-02",
+          "amountCents": 0,
+          "direction": "returned",
+          "note": ""
+        }
+      ],
+      "from": "2026-01-01",
+      "to": "2026-01-31",
+      "expected": [
+        {
+          "person": {
+            "id": "alex",
+            "name": "Alex",
+            "handle": "alex",
+            "relation": "Friend",
+            "isSelf": 0
+          },
+          "outstandingCents": 484,
+          "inRangeOutstandingCents": 284,
+          "creditCents": 0,
+          "receivedCents": 0,
+          "returnedCents": 0,
+          "expenses": [
+            {
+              "transactionId": "a",
+              "date": "2026-01-01",
+              "description": "First",
+              "allocatedCents": 34,
+              "refundedCents": 0,
+              "paidCents": 34,
+              "remainingCents": 0
+            },
+            {
+              "transactionId": "b",
+              "date": "2026-01-01",
+              "description": "Second",
+              "allocatedCents": 350,
+              "refundedCents": 50,
+              "paidCents": 16,
+              "remainingCents": 284
+            },
+            {
+              "transactionId": "c",
+              "date": "2026-02-01",
+              "description": "Third",
+              "allocatedCents": 200,
+              "refundedCents": 0,
+              "paidCents": 0,
+              "remainingCents": 200
+            }
+          ],
+          "unpaidExpenseCount": 2
+        },
+        {
+          "person": {
+            "id": "zara",
+            "name": "Zara",
+            "handle": "zara",
+            "relation": "Friend",
+            "isSelf": 0
+          },
+          "outstandingCents": 33,
+          "inRangeOutstandingCents": 33,
+          "creditCents": 0,
+          "receivedCents": 0,
+          "returnedCents": 0,
+          "expenses": [
+            {
+              "transactionId": "a",
+              "date": "2026-01-01",
+              "description": "First",
+              "allocatedCents": 33,
+              "refundedCents": 0,
+              "paidCents": 0,
+              "remainingCents": 33
+            }
+          ],
+          "unpaidExpenseCount": 1
+        }
+      ]
+    },
+    {
+      "transactions": [
+        {
+          "id": "a",
+          "date": "2026-01-01",
+          "description": "First",
+          "amountCents": 101,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "self",
+                "amountCents": 34
+              },
+              {
+                "personId": "alex",
+                "amountCents": 34
+              },
+              {
+                "personId": "zara",
+                "amountCents": 33
+              }
+            ],
+            "category": "Food"
+          }
+        },
+        {
+          "id": "b",
+          "date": "2026-01-01",
+          "description": "Second",
+          "amountCents": 700,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "self",
+                "amountCents": 350
+              },
+              {
+                "personId": "alex",
+                "amountCents": 350
+              }
+            ],
+            "category": "Travel"
+          }
+        },
+        {
+          "id": "c",
+          "date": "2026-02-01",
+          "description": "Third",
+          "amountCents": 400,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "self",
+                "amountCents": 200
+              },
+              {
+                "personId": "alex",
+                "amountCents": 200
+              }
+            ],
+            "category": "Travel"
+          }
+        },
+        {
+          "id": "d",
+          "date": "2026-02-02",
+          "description": "Refund",
+          "amountCents": -100,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "self",
+                "amountCents": -50
+              },
+              {
+                "personId": "alex",
+                "amountCents": -50
+              }
+            ],
+            "category": "Travel",
+            "refundOf": "b"
+          }
+        },
+        {
+          "id": "e",
+          "date": "2026-02-03",
+          "description": "Unlinked refund",
+          "amountCents": -50,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "alex",
+                "amountCents": -50
+              }
+            ],
+            "category": "Travel"
+          }
+        },
+        {
+          "id": "f",
+          "date": "2026-01-01",
+          "description": "Unapproved",
+          "amountCents": 10000,
+          "state": "ready",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "alex",
+                "amountCents": 10000
+              }
+            ],
+            "category": "Food"
+          }
+        }
+      ],
+      "people": [
+        {
+          "id": "self",
+          "name": "Me",
+          "handle": "me",
+          "relation": "",
+          "isSelf": 1
+        },
+        {
+          "id": "alex",
+          "name": "Alex",
+          "handle": "alex",
+          "relation": "Friend",
+          "isSelf": 0
+        },
+        {
+          "id": "zara",
+          "name": "Zara",
+          "handle": "zara",
+          "relation": "Friend",
+          "isSelf": 0
+        }
+      ],
+      "repayments": [
+        {
+          "id": "pay",
+          "personId": "alex",
+          "date": "2026-03-01",
+          "amountCents": 0,
+          "direction": "received",
+          "note": ""
+        },
+        {
+          "id": "return",
+          "personId": "alex",
+          "date": "2026-03-02",
+          "amountCents": 100,
+          "direction": "returned",
+          "note": ""
+        }
+      ],
+      "from": "2026-01-01",
+      "to": "2026-01-31",
+      "expected": [
+        {
+          "person": {
+            "id": "alex",
+            "name": "Alex",
+            "handle": "alex",
+            "relation": "Friend",
+            "isSelf": 0
+          },
+          "outstandingCents": 584,
+          "inRangeOutstandingCents": 334,
+          "creditCents": 0,
+          "receivedCents": 0,
+          "returnedCents": 100,
+          "expenses": [
+            {
+              "transactionId": "a",
+              "date": "2026-01-01",
+              "description": "First",
+              "allocatedCents": 34,
+              "refundedCents": 0,
+              "paidCents": 0,
+              "remainingCents": 34
+            },
+            {
+              "transactionId": "b",
+              "date": "2026-01-01",
+              "description": "Second",
+              "allocatedCents": 350,
+              "refundedCents": 50,
+              "paidCents": 0,
+              "remainingCents": 300
+            },
+            {
+              "transactionId": "c",
+              "date": "2026-02-01",
+              "description": "Third",
+              "allocatedCents": 200,
+              "refundedCents": 0,
+              "paidCents": 0,
+              "remainingCents": 200
+            }
+          ],
+          "unpaidExpenseCount": 3
+        },
+        {
+          "person": {
+            "id": "zara",
+            "name": "Zara",
+            "handle": "zara",
+            "relation": "Friend",
+            "isSelf": 0
+          },
+          "outstandingCents": 33,
+          "inRangeOutstandingCents": 33,
+          "creditCents": 0,
+          "receivedCents": 0,
+          "returnedCents": 0,
+          "expenses": [
+            {
+              "transactionId": "a",
+              "date": "2026-01-01",
+              "description": "First",
+              "allocatedCents": 33,
+              "refundedCents": 0,
+              "paidCents": 0,
+              "remainingCents": 33
+            }
+          ],
+          "unpaidExpenseCount": 1
+        }
+      ]
+    },
+    {
+      "transactions": [
+        {
+          "id": "a",
+          "date": "2026-01-01",
+          "description": "First",
+          "amountCents": 101,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "self",
+                "amountCents": 34
+              },
+              {
+                "personId": "alex",
+                "amountCents": 34
+              },
+              {
+                "personId": "zara",
+                "amountCents": 33
+              }
+            ],
+            "category": "Food"
+          }
+        },
+        {
+          "id": "b",
+          "date": "2026-01-01",
+          "description": "Second",
+          "amountCents": 700,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "self",
+                "amountCents": 350
+              },
+              {
+                "personId": "alex",
+                "amountCents": 350
+              }
+            ],
+            "category": "Travel"
+          }
+        },
+        {
+          "id": "c",
+          "date": "2026-02-01",
+          "description": "Third",
+          "amountCents": 400,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "self",
+                "amountCents": 200
+              },
+              {
+                "personId": "alex",
+                "amountCents": 200
+              }
+            ],
+            "category": "Travel"
+          }
+        },
+        {
+          "id": "d",
+          "date": "2026-02-02",
+          "description": "Refund",
+          "amountCents": -100,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "self",
+                "amountCents": -50
+              },
+              {
+                "personId": "alex",
+                "amountCents": -50
+              }
+            ],
+            "category": "Travel",
+            "refundOf": "b"
+          }
+        },
+        {
+          "id": "e",
+          "date": "2026-02-03",
+          "description": "Unlinked refund",
+          "amountCents": -50,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "alex",
+                "amountCents": -50
+              }
+            ],
+            "category": "Travel"
+          }
+        },
+        {
+          "id": "f",
+          "date": "2026-01-01",
+          "description": "Unapproved",
+          "amountCents": 10000,
+          "state": "ready",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "alex",
+                "amountCents": 10000
+              }
+            ],
+            "category": "Food"
+          }
+        }
+      ],
+      "people": [
+        {
+          "id": "self",
+          "name": "Me",
+          "handle": "me",
+          "relation": "",
+          "isSelf": 1
+        },
+        {
+          "id": "alex",
+          "name": "Alex",
+          "handle": "alex",
+          "relation": "Friend",
+          "isSelf": 0
+        },
+        {
+          "id": "zara",
+          "name": "Zara",
+          "handle": "zara",
+          "relation": "Friend",
+          "isSelf": 0
+        }
+      ],
+      "repayments": [
+        {
+          "id": "pay",
+          "personId": "alex",
+          "date": "2026-03-01",
+          "amountCents": 1,
+          "direction": "received",
+          "note": ""
+        },
+        {
+          "id": "return",
+          "personId": "alex",
+          "date": "2026-03-02",
+          "amountCents": 0,
+          "direction": "returned",
+          "note": ""
+        }
+      ],
+      "from": "2026-01-01",
+      "to": "2026-01-31",
+      "expected": [
+        {
+          "person": {
+            "id": "alex",
+            "name": "Alex",
+            "handle": "alex",
+            "relation": "Friend",
+            "isSelf": 0
+          },
+          "outstandingCents": 483,
+          "inRangeOutstandingCents": 283,
+          "creditCents": 0,
+          "receivedCents": 1,
+          "returnedCents": 0,
+          "expenses": [
+            {
+              "transactionId": "a",
+              "date": "2026-01-01",
+              "description": "First",
+              "allocatedCents": 34,
+              "refundedCents": 0,
+              "paidCents": 34,
+              "remainingCents": 0
+            },
+            {
+              "transactionId": "b",
+              "date": "2026-01-01",
+              "description": "Second",
+              "allocatedCents": 350,
+              "refundedCents": 50,
+              "paidCents": 17,
+              "remainingCents": 283
+            },
+            {
+              "transactionId": "c",
+              "date": "2026-02-01",
+              "description": "Third",
+              "allocatedCents": 200,
+              "refundedCents": 0,
+              "paidCents": 0,
+              "remainingCents": 200
+            }
+          ],
+          "unpaidExpenseCount": 2
+        },
+        {
+          "person": {
+            "id": "zara",
+            "name": "Zara",
+            "handle": "zara",
+            "relation": "Friend",
+            "isSelf": 0
+          },
+          "outstandingCents": 33,
+          "inRangeOutstandingCents": 33,
+          "creditCents": 0,
+          "receivedCents": 0,
+          "returnedCents": 0,
+          "expenses": [
+            {
+              "transactionId": "a",
+              "date": "2026-01-01",
+              "description": "First",
+              "allocatedCents": 33,
+              "refundedCents": 0,
+              "paidCents": 0,
+              "remainingCents": 33
+            }
+          ],
+          "unpaidExpenseCount": 1
+        }
+      ]
+    },
+    {
+      "transactions": [
+        {
+          "id": "a",
+          "date": "2026-01-01",
+          "description": "First",
+          "amountCents": 101,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "self",
+                "amountCents": 34
+              },
+              {
+                "personId": "alex",
+                "amountCents": 34
+              },
+              {
+                "personId": "zara",
+                "amountCents": 33
+              }
+            ],
+            "category": "Food"
+          }
+        },
+        {
+          "id": "b",
+          "date": "2026-01-01",
+          "description": "Second",
+          "amountCents": 700,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "self",
+                "amountCents": 350
+              },
+              {
+                "personId": "alex",
+                "amountCents": 350
+              }
+            ],
+            "category": "Travel"
+          }
+        },
+        {
+          "id": "c",
+          "date": "2026-02-01",
+          "description": "Third",
+          "amountCents": 400,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "self",
+                "amountCents": 200
+              },
+              {
+                "personId": "alex",
+                "amountCents": 200
+              }
+            ],
+            "category": "Travel"
+          }
+        },
+        {
+          "id": "d",
+          "date": "2026-02-02",
+          "description": "Refund",
+          "amountCents": -100,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "self",
+                "amountCents": -50
+              },
+              {
+                "personId": "alex",
+                "amountCents": -50
+              }
+            ],
+            "category": "Travel",
+            "refundOf": "b"
+          }
+        },
+        {
+          "id": "e",
+          "date": "2026-02-03",
+          "description": "Unlinked refund",
+          "amountCents": -50,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "alex",
+                "amountCents": -50
+              }
+            ],
+            "category": "Travel"
+          }
+        },
+        {
+          "id": "f",
+          "date": "2026-01-01",
+          "description": "Unapproved",
+          "amountCents": 10000,
+          "state": "ready",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "alex",
+                "amountCents": 10000
+              }
+            ],
+            "category": "Food"
+          }
+        }
+      ],
+      "people": [
+        {
+          "id": "self",
+          "name": "Me",
+          "handle": "me",
+          "relation": "",
+          "isSelf": 1
+        },
+        {
+          "id": "alex",
+          "name": "Alex",
+          "handle": "alex",
+          "relation": "Friend",
+          "isSelf": 0
+        },
+        {
+          "id": "zara",
+          "name": "Zara",
+          "handle": "zara",
+          "relation": "Friend",
+          "isSelf": 0
+        }
+      ],
+      "repayments": [
+        {
+          "id": "pay",
+          "personId": "alex",
+          "date": "2026-03-01",
+          "amountCents": 1,
+          "direction": "received",
+          "note": ""
+        },
+        {
+          "id": "return",
+          "personId": "alex",
+          "date": "2026-03-02",
+          "amountCents": 100,
+          "direction": "returned",
+          "note": ""
+        }
+      ],
+      "from": "2026-01-01",
+      "to": "2026-01-31",
+      "expected": [
+        {
+          "person": {
+            "id": "alex",
+            "name": "Alex",
+            "handle": "alex",
+            "relation": "Friend",
+            "isSelf": 0
+          },
+          "outstandingCents": 583,
+          "inRangeOutstandingCents": 334,
+          "creditCents": 0,
+          "receivedCents": 1,
+          "returnedCents": 100,
+          "expenses": [
+            {
+              "transactionId": "a",
+              "date": "2026-01-01",
+              "description": "First",
+              "allocatedCents": 34,
+              "refundedCents": 0,
+              "paidCents": 0,
+              "remainingCents": 34
+            },
+            {
+              "transactionId": "b",
+              "date": "2026-01-01",
+              "description": "Second",
+              "allocatedCents": 350,
+              "refundedCents": 50,
+              "paidCents": 0,
+              "remainingCents": 300
+            },
+            {
+              "transactionId": "c",
+              "date": "2026-02-01",
+              "description": "Third",
+              "allocatedCents": 200,
+              "refundedCents": 0,
+              "paidCents": 0,
+              "remainingCents": 200
+            }
+          ],
+          "unpaidExpenseCount": 3
+        },
+        {
+          "person": {
+            "id": "zara",
+            "name": "Zara",
+            "handle": "zara",
+            "relation": "Friend",
+            "isSelf": 0
+          },
+          "outstandingCents": 33,
+          "inRangeOutstandingCents": 33,
+          "creditCents": 0,
+          "receivedCents": 0,
+          "returnedCents": 0,
+          "expenses": [
+            {
+              "transactionId": "a",
+              "date": "2026-01-01",
+              "description": "First",
+              "allocatedCents": 33,
+              "refundedCents": 0,
+              "paidCents": 0,
+              "remainingCents": 33
+            }
+          ],
+          "unpaidExpenseCount": 1
+        }
+      ]
+    },
+    {
+      "transactions": [
+        {
+          "id": "a",
+          "date": "2026-01-01",
+          "description": "First",
+          "amountCents": 101,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "self",
+                "amountCents": 34
+              },
+              {
+                "personId": "alex",
+                "amountCents": 34
+              },
+              {
+                "personId": "zara",
+                "amountCents": 33
+              }
+            ],
+            "category": "Food"
+          }
+        },
+        {
+          "id": "b",
+          "date": "2026-01-01",
+          "description": "Second",
+          "amountCents": 700,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "self",
+                "amountCents": 350
+              },
+              {
+                "personId": "alex",
+                "amountCents": 350
+              }
+            ],
+            "category": "Travel"
+          }
+        },
+        {
+          "id": "c",
+          "date": "2026-02-01",
+          "description": "Third",
+          "amountCents": 400,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "self",
+                "amountCents": 200
+              },
+              {
+                "personId": "alex",
+                "amountCents": 200
+              }
+            ],
+            "category": "Travel"
+          }
+        },
+        {
+          "id": "d",
+          "date": "2026-02-02",
+          "description": "Refund",
+          "amountCents": -100,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "self",
+                "amountCents": -50
+              },
+              {
+                "personId": "alex",
+                "amountCents": -50
+              }
+            ],
+            "category": "Travel",
+            "refundOf": "b"
+          }
+        },
+        {
+          "id": "e",
+          "date": "2026-02-03",
+          "description": "Unlinked refund",
+          "amountCents": -50,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "alex",
+                "amountCents": -50
+              }
+            ],
+            "category": "Travel"
+          }
+        },
+        {
+          "id": "f",
+          "date": "2026-01-01",
+          "description": "Unapproved",
+          "amountCents": 10000,
+          "state": "ready",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "alex",
+                "amountCents": 10000
+              }
+            ],
+            "category": "Food"
+          }
+        }
+      ],
+      "people": [
+        {
+          "id": "self",
+          "name": "Me",
+          "handle": "me",
+          "relation": "",
+          "isSelf": 1
+        },
+        {
+          "id": "alex",
+          "name": "Alex",
+          "handle": "alex",
+          "relation": "Friend",
+          "isSelf": 0
+        },
+        {
+          "id": "zara",
+          "name": "Zara",
+          "handle": "zara",
+          "relation": "Friend",
+          "isSelf": 0
+        }
+      ],
+      "repayments": [
+        {
+          "id": "pay",
+          "personId": "alex",
+          "date": "2026-03-01",
+          "amountCents": 200,
+          "direction": "received",
+          "note": ""
+        },
+        {
+          "id": "return",
+          "personId": "alex",
+          "date": "2026-03-02",
+          "amountCents": 0,
+          "direction": "returned",
+          "note": ""
+        }
+      ],
+      "from": "2026-01-01",
+      "to": "2026-01-31",
+      "expected": [
+        {
+          "person": {
+            "id": "alex",
+            "name": "Alex",
+            "handle": "alex",
+            "relation": "Friend",
+            "isSelf": 0
+          },
+          "outstandingCents": 284,
+          "inRangeOutstandingCents": 84,
+          "creditCents": 0,
+          "receivedCents": 200,
+          "returnedCents": 0,
+          "expenses": [
+            {
+              "transactionId": "a",
+              "date": "2026-01-01",
+              "description": "First",
+              "allocatedCents": 34,
+              "refundedCents": 0,
+              "paidCents": 34,
+              "remainingCents": 0
+            },
+            {
+              "transactionId": "b",
+              "date": "2026-01-01",
+              "description": "Second",
+              "allocatedCents": 350,
+              "refundedCents": 50,
+              "paidCents": 216,
+              "remainingCents": 84
+            },
+            {
+              "transactionId": "c",
+              "date": "2026-02-01",
+              "description": "Third",
+              "allocatedCents": 200,
+              "refundedCents": 0,
+              "paidCents": 0,
+              "remainingCents": 200
+            }
+          ],
+          "unpaidExpenseCount": 2
+        },
+        {
+          "person": {
+            "id": "zara",
+            "name": "Zara",
+            "handle": "zara",
+            "relation": "Friend",
+            "isSelf": 0
+          },
+          "outstandingCents": 33,
+          "inRangeOutstandingCents": 33,
+          "creditCents": 0,
+          "receivedCents": 0,
+          "returnedCents": 0,
+          "expenses": [
+            {
+              "transactionId": "a",
+              "date": "2026-01-01",
+              "description": "First",
+              "allocatedCents": 33,
+              "refundedCents": 0,
+              "paidCents": 0,
+              "remainingCents": 33
+            }
+          ],
+          "unpaidExpenseCount": 1
+        }
+      ]
+    },
+    {
+      "transactions": [
+        {
+          "id": "a",
+          "date": "2026-01-01",
+          "description": "First",
+          "amountCents": 101,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "self",
+                "amountCents": 34
+              },
+              {
+                "personId": "alex",
+                "amountCents": 34
+              },
+              {
+                "personId": "zara",
+                "amountCents": 33
+              }
+            ],
+            "category": "Food"
+          }
+        },
+        {
+          "id": "b",
+          "date": "2026-01-01",
+          "description": "Second",
+          "amountCents": 700,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "self",
+                "amountCents": 350
+              },
+              {
+                "personId": "alex",
+                "amountCents": 350
+              }
+            ],
+            "category": "Travel"
+          }
+        },
+        {
+          "id": "c",
+          "date": "2026-02-01",
+          "description": "Third",
+          "amountCents": 400,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "self",
+                "amountCents": 200
+              },
+              {
+                "personId": "alex",
+                "amountCents": 200
+              }
+            ],
+            "category": "Travel"
+          }
+        },
+        {
+          "id": "d",
+          "date": "2026-02-02",
+          "description": "Refund",
+          "amountCents": -100,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "self",
+                "amountCents": -50
+              },
+              {
+                "personId": "alex",
+                "amountCents": -50
+              }
+            ],
+            "category": "Travel",
+            "refundOf": "b"
+          }
+        },
+        {
+          "id": "e",
+          "date": "2026-02-03",
+          "description": "Unlinked refund",
+          "amountCents": -50,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "alex",
+                "amountCents": -50
+              }
+            ],
+            "category": "Travel"
+          }
+        },
+        {
+          "id": "f",
+          "date": "2026-01-01",
+          "description": "Unapproved",
+          "amountCents": 10000,
+          "state": "ready",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "alex",
+                "amountCents": 10000
+              }
+            ],
+            "category": "Food"
+          }
+        }
+      ],
+      "people": [
+        {
+          "id": "self",
+          "name": "Me",
+          "handle": "me",
+          "relation": "",
+          "isSelf": 1
+        },
+        {
+          "id": "alex",
+          "name": "Alex",
+          "handle": "alex",
+          "relation": "Friend",
+          "isSelf": 0
+        },
+        {
+          "id": "zara",
+          "name": "Zara",
+          "handle": "zara",
+          "relation": "Friend",
+          "isSelf": 0
+        }
+      ],
+      "repayments": [
+        {
+          "id": "pay",
+          "personId": "alex",
+          "date": "2026-03-01",
+          "amountCents": 200,
+          "direction": "received",
+          "note": ""
+        },
+        {
+          "id": "return",
+          "personId": "alex",
+          "date": "2026-03-02",
+          "amountCents": 100,
+          "direction": "returned",
+          "note": ""
+        }
+      ],
+      "from": "2026-01-01",
+      "to": "2026-01-31",
+      "expected": [
+        {
+          "person": {
+            "id": "alex",
+            "name": "Alex",
+            "handle": "alex",
+            "relation": "Friend",
+            "isSelf": 0
+          },
+          "outstandingCents": 384,
+          "inRangeOutstandingCents": 184,
+          "creditCents": 0,
+          "receivedCents": 200,
+          "returnedCents": 100,
+          "expenses": [
+            {
+              "transactionId": "a",
+              "date": "2026-01-01",
+              "description": "First",
+              "allocatedCents": 34,
+              "refundedCents": 0,
+              "paidCents": 34,
+              "remainingCents": 0
+            },
+            {
+              "transactionId": "b",
+              "date": "2026-01-01",
+              "description": "Second",
+              "allocatedCents": 350,
+              "refundedCents": 50,
+              "paidCents": 116,
+              "remainingCents": 184
+            },
+            {
+              "transactionId": "c",
+              "date": "2026-02-01",
+              "description": "Third",
+              "allocatedCents": 200,
+              "refundedCents": 0,
+              "paidCents": 0,
+              "remainingCents": 200
+            }
+          ],
+          "unpaidExpenseCount": 2
+        },
+        {
+          "person": {
+            "id": "zara",
+            "name": "Zara",
+            "handle": "zara",
+            "relation": "Friend",
+            "isSelf": 0
+          },
+          "outstandingCents": 33,
+          "inRangeOutstandingCents": 33,
+          "creditCents": 0,
+          "receivedCents": 0,
+          "returnedCents": 0,
+          "expenses": [
+            {
+              "transactionId": "a",
+              "date": "2026-01-01",
+              "description": "First",
+              "allocatedCents": 33,
+              "refundedCents": 0,
+              "paidCents": 0,
+              "remainingCents": 33
+            }
+          ],
+          "unpaidExpenseCount": 1
+        }
+      ]
+    },
+    {
+      "transactions": [
+        {
+          "id": "a",
+          "date": "2026-01-01",
+          "description": "First",
+          "amountCents": 101,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "self",
+                "amountCents": 34
+              },
+              {
+                "personId": "alex",
+                "amountCents": 34
+              },
+              {
+                "personId": "zara",
+                "amountCents": 33
+              }
+            ],
+            "category": "Food"
+          }
+        },
+        {
+          "id": "b",
+          "date": "2026-01-01",
+          "description": "Second",
+          "amountCents": 700,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "self",
+                "amountCents": 350
+              },
+              {
+                "personId": "alex",
+                "amountCents": 350
+              }
+            ],
+            "category": "Travel"
+          }
+        },
+        {
+          "id": "c",
+          "date": "2026-02-01",
+          "description": "Third",
+          "amountCents": 400,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "self",
+                "amountCents": 200
+              },
+              {
+                "personId": "alex",
+                "amountCents": 200
+              }
+            ],
+            "category": "Travel"
+          }
+        },
+        {
+          "id": "d",
+          "date": "2026-02-02",
+          "description": "Refund",
+          "amountCents": -100,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "self",
+                "amountCents": -50
+              },
+              {
+                "personId": "alex",
+                "amountCents": -50
+              }
+            ],
+            "category": "Travel",
+            "refundOf": "b"
+          }
+        },
+        {
+          "id": "e",
+          "date": "2026-02-03",
+          "description": "Unlinked refund",
+          "amountCents": -50,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "alex",
+                "amountCents": -50
+              }
+            ],
+            "category": "Travel"
+          }
+        },
+        {
+          "id": "f",
+          "date": "2026-01-01",
+          "description": "Unapproved",
+          "amountCents": 10000,
+          "state": "ready",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "alex",
+                "amountCents": 10000
+              }
+            ],
+            "category": "Food"
+          }
+        }
+      ],
+      "people": [
+        {
+          "id": "self",
+          "name": "Me",
+          "handle": "me",
+          "relation": "",
+          "isSelf": 1
+        },
+        {
+          "id": "alex",
+          "name": "Alex",
+          "handle": "alex",
+          "relation": "Friend",
+          "isSelf": 0
+        },
+        {
+          "id": "zara",
+          "name": "Zara",
+          "handle": "zara",
+          "relation": "Friend",
+          "isSelf": 0
+        }
+      ],
+      "repayments": [
+        {
+          "id": "pay",
+          "personId": "alex",
+          "date": "2026-03-01",
+          "amountCents": 533,
+          "direction": "received",
+          "note": ""
+        },
+        {
+          "id": "return",
+          "personId": "alex",
+          "date": "2026-03-02",
+          "amountCents": 0,
+          "direction": "returned",
+          "note": ""
+        }
+      ],
+      "from": "2026-01-01",
+      "to": "2026-01-31",
+      "expected": [
+        {
+          "person": {
+            "id": "alex",
+            "name": "Alex",
+            "handle": "alex",
+            "relation": "Friend",
+            "isSelf": 0
+          },
+          "outstandingCents": 0,
+          "inRangeOutstandingCents": 0,
+          "creditCents": 49,
+          "receivedCents": 533,
+          "returnedCents": 0,
+          "expenses": [
+            {
+              "transactionId": "a",
+              "date": "2026-01-01",
+              "description": "First",
+              "allocatedCents": 34,
+              "refundedCents": 0,
+              "paidCents": 34,
+              "remainingCents": 0
+            },
+            {
+              "transactionId": "b",
+              "date": "2026-01-01",
+              "description": "Second",
+              "allocatedCents": 350,
+              "refundedCents": 50,
+              "paidCents": 300,
+              "remainingCents": 0
+            },
+            {
+              "transactionId": "c",
+              "date": "2026-02-01",
+              "description": "Third",
+              "allocatedCents": 200,
+              "refundedCents": 0,
+              "paidCents": 200,
+              "remainingCents": 0
+            }
+          ],
+          "unpaidExpenseCount": 0
+        },
+        {
+          "person": {
+            "id": "zara",
+            "name": "Zara",
+            "handle": "zara",
+            "relation": "Friend",
+            "isSelf": 0
+          },
+          "outstandingCents": 33,
+          "inRangeOutstandingCents": 33,
+          "creditCents": 0,
+          "receivedCents": 0,
+          "returnedCents": 0,
+          "expenses": [
+            {
+              "transactionId": "a",
+              "date": "2026-01-01",
+              "description": "First",
+              "allocatedCents": 33,
+              "refundedCents": 0,
+              "paidCents": 0,
+              "remainingCents": 33
+            }
+          ],
+          "unpaidExpenseCount": 1
+        }
+      ]
+    },
+    {
+      "transactions": [
+        {
+          "id": "a",
+          "date": "2026-01-01",
+          "description": "First",
+          "amountCents": 101,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "self",
+                "amountCents": 34
+              },
+              {
+                "personId": "alex",
+                "amountCents": 34
+              },
+              {
+                "personId": "zara",
+                "amountCents": 33
+              }
+            ],
+            "category": "Food"
+          }
+        },
+        {
+          "id": "b",
+          "date": "2026-01-01",
+          "description": "Second",
+          "amountCents": 700,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "self",
+                "amountCents": 350
+              },
+              {
+                "personId": "alex",
+                "amountCents": 350
+              }
+            ],
+            "category": "Travel"
+          }
+        },
+        {
+          "id": "c",
+          "date": "2026-02-01",
+          "description": "Third",
+          "amountCents": 400,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "self",
+                "amountCents": 200
+              },
+              {
+                "personId": "alex",
+                "amountCents": 200
+              }
+            ],
+            "category": "Travel"
+          }
+        },
+        {
+          "id": "d",
+          "date": "2026-02-02",
+          "description": "Refund",
+          "amountCents": -100,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "self",
+                "amountCents": -50
+              },
+              {
+                "personId": "alex",
+                "amountCents": -50
+              }
+            ],
+            "category": "Travel",
+            "refundOf": "b"
+          }
+        },
+        {
+          "id": "e",
+          "date": "2026-02-03",
+          "description": "Unlinked refund",
+          "amountCents": -50,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "alex",
+                "amountCents": -50
+              }
+            ],
+            "category": "Travel"
+          }
+        },
+        {
+          "id": "f",
+          "date": "2026-01-01",
+          "description": "Unapproved",
+          "amountCents": 10000,
+          "state": "ready",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "alex",
+                "amountCents": 10000
+              }
+            ],
+            "category": "Food"
+          }
+        }
+      ],
+      "people": [
+        {
+          "id": "self",
+          "name": "Me",
+          "handle": "me",
+          "relation": "",
+          "isSelf": 1
+        },
+        {
+          "id": "alex",
+          "name": "Alex",
+          "handle": "alex",
+          "relation": "Friend",
+          "isSelf": 0
+        },
+        {
+          "id": "zara",
+          "name": "Zara",
+          "handle": "zara",
+          "relation": "Friend",
+          "isSelf": 0
+        }
+      ],
+      "repayments": [
+        {
+          "id": "pay",
+          "personId": "alex",
+          "date": "2026-03-01",
+          "amountCents": 533,
+          "direction": "received",
+          "note": ""
+        },
+        {
+          "id": "return",
+          "personId": "alex",
+          "date": "2026-03-02",
+          "amountCents": 100,
+          "direction": "returned",
+          "note": ""
+        }
+      ],
+      "from": "2026-01-01",
+      "to": "2026-01-31",
+      "expected": [
+        {
+          "person": {
+            "id": "alex",
+            "name": "Alex",
+            "handle": "alex",
+            "relation": "Friend",
+            "isSelf": 0
+          },
+          "outstandingCents": 51,
+          "inRangeOutstandingCents": 0,
+          "creditCents": 0,
+          "receivedCents": 533,
+          "returnedCents": 100,
+          "expenses": [
+            {
+              "transactionId": "a",
+              "date": "2026-01-01",
+              "description": "First",
+              "allocatedCents": 34,
+              "refundedCents": 0,
+              "paidCents": 34,
+              "remainingCents": 0
+            },
+            {
+              "transactionId": "b",
+              "date": "2026-01-01",
+              "description": "Second",
+              "allocatedCents": 350,
+              "refundedCents": 50,
+              "paidCents": 300,
+              "remainingCents": 0
+            },
+            {
+              "transactionId": "c",
+              "date": "2026-02-01",
+              "description": "Third",
+              "allocatedCents": 200,
+              "refundedCents": 0,
+              "paidCents": 149,
+              "remainingCents": 51
+            }
+          ],
+          "unpaidExpenseCount": 1
+        },
+        {
+          "person": {
+            "id": "zara",
+            "name": "Zara",
+            "handle": "zara",
+            "relation": "Friend",
+            "isSelf": 0
+          },
+          "outstandingCents": 33,
+          "inRangeOutstandingCents": 33,
+          "creditCents": 0,
+          "receivedCents": 0,
+          "returnedCents": 0,
+          "expenses": [
+            {
+              "transactionId": "a",
+              "date": "2026-01-01",
+              "description": "First",
+              "allocatedCents": 33,
+              "refundedCents": 0,
+              "paidCents": 0,
+              "remainingCents": 33
+            }
+          ],
+          "unpaidExpenseCount": 1
+        }
+      ]
+    },
+    {
+      "transactions": [
+        {
+          "id": "a",
+          "date": "2026-01-01",
+          "description": "First",
+          "amountCents": 101,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "self",
+                "amountCents": 34
+              },
+              {
+                "personId": "alex",
+                "amountCents": 34
+              },
+              {
+                "personId": "zara",
+                "amountCents": 33
+              }
+            ],
+            "category": "Food"
+          }
+        },
+        {
+          "id": "b",
+          "date": "2026-01-01",
+          "description": "Second",
+          "amountCents": 700,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "self",
+                "amountCents": 350
+              },
+              {
+                "personId": "alex",
+                "amountCents": 350
+              }
+            ],
+            "category": "Travel"
+          }
+        },
+        {
+          "id": "c",
+          "date": "2026-02-01",
+          "description": "Third",
+          "amountCents": 400,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "self",
+                "amountCents": 200
+              },
+              {
+                "personId": "alex",
+                "amountCents": 200
+              }
+            ],
+            "category": "Travel"
+          }
+        },
+        {
+          "id": "d",
+          "date": "2026-02-02",
+          "description": "Refund",
+          "amountCents": -100,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "self",
+                "amountCents": -50
+              },
+              {
+                "personId": "alex",
+                "amountCents": -50
+              }
+            ],
+            "category": "Travel",
+            "refundOf": "b"
+          }
+        },
+        {
+          "id": "e",
+          "date": "2026-02-03",
+          "description": "Unlinked refund",
+          "amountCents": -50,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "alex",
+                "amountCents": -50
+              }
+            ],
+            "category": "Travel"
+          }
+        },
+        {
+          "id": "f",
+          "date": "2026-01-01",
+          "description": "Unapproved",
+          "amountCents": 10000,
+          "state": "ready",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "alex",
+                "amountCents": 10000
+              }
+            ],
+            "category": "Food"
+          }
+        }
+      ],
+      "people": [
+        {
+          "id": "self",
+          "name": "Me",
+          "handle": "me",
+          "relation": "",
+          "isSelf": 1
+        },
+        {
+          "id": "alex",
+          "name": "Alex",
+          "handle": "alex",
+          "relation": "Friend",
+          "isSelf": 0
+        },
+        {
+          "id": "zara",
+          "name": "Zara",
+          "handle": "zara",
+          "relation": "Friend",
+          "isSelf": 0
+        }
+      ],
+      "repayments": [
+        {
+          "id": "pay",
+          "personId": "alex",
+          "date": "2026-03-01",
+          "amountCents": 800,
+          "direction": "received",
+          "note": ""
+        },
+        {
+          "id": "return",
+          "personId": "alex",
+          "date": "2026-03-02",
+          "amountCents": 0,
+          "direction": "returned",
+          "note": ""
+        }
+      ],
+      "from": "2026-01-01",
+      "to": "2026-01-31",
+      "expected": [
+        {
+          "person": {
+            "id": "alex",
+            "name": "Alex",
+            "handle": "alex",
+            "relation": "Friend",
+            "isSelf": 0
+          },
+          "outstandingCents": 0,
+          "inRangeOutstandingCents": 0,
+          "creditCents": 316,
+          "receivedCents": 800,
+          "returnedCents": 0,
+          "expenses": [
+            {
+              "transactionId": "a",
+              "date": "2026-01-01",
+              "description": "First",
+              "allocatedCents": 34,
+              "refundedCents": 0,
+              "paidCents": 34,
+              "remainingCents": 0
+            },
+            {
+              "transactionId": "b",
+              "date": "2026-01-01",
+              "description": "Second",
+              "allocatedCents": 350,
+              "refundedCents": 50,
+              "paidCents": 300,
+              "remainingCents": 0
+            },
+            {
+              "transactionId": "c",
+              "date": "2026-02-01",
+              "description": "Third",
+              "allocatedCents": 200,
+              "refundedCents": 0,
+              "paidCents": 200,
+              "remainingCents": 0
+            }
+          ],
+          "unpaidExpenseCount": 0
+        },
+        {
+          "person": {
+            "id": "zara",
+            "name": "Zara",
+            "handle": "zara",
+            "relation": "Friend",
+            "isSelf": 0
+          },
+          "outstandingCents": 33,
+          "inRangeOutstandingCents": 33,
+          "creditCents": 0,
+          "receivedCents": 0,
+          "returnedCents": 0,
+          "expenses": [
+            {
+              "transactionId": "a",
+              "date": "2026-01-01",
+              "description": "First",
+              "allocatedCents": 33,
+              "refundedCents": 0,
+              "paidCents": 0,
+              "remainingCents": 33
+            }
+          ],
+          "unpaidExpenseCount": 1
+        }
+      ]
+    },
+    {
+      "transactions": [
+        {
+          "id": "a",
+          "date": "2026-01-01",
+          "description": "First",
+          "amountCents": 101,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "self",
+                "amountCents": 34
+              },
+              {
+                "personId": "alex",
+                "amountCents": 34
+              },
+              {
+                "personId": "zara",
+                "amountCents": 33
+              }
+            ],
+            "category": "Food"
+          }
+        },
+        {
+          "id": "b",
+          "date": "2026-01-01",
+          "description": "Second",
+          "amountCents": 700,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "self",
+                "amountCents": 350
+              },
+              {
+                "personId": "alex",
+                "amountCents": 350
+              }
+            ],
+            "category": "Travel"
+          }
+        },
+        {
+          "id": "c",
+          "date": "2026-02-01",
+          "description": "Third",
+          "amountCents": 400,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "self",
+                "amountCents": 200
+              },
+              {
+                "personId": "alex",
+                "amountCents": 200
+              }
+            ],
+            "category": "Travel"
+          }
+        },
+        {
+          "id": "d",
+          "date": "2026-02-02",
+          "description": "Refund",
+          "amountCents": -100,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "self",
+                "amountCents": -50
+              },
+              {
+                "personId": "alex",
+                "amountCents": -50
+              }
+            ],
+            "category": "Travel",
+            "refundOf": "b"
+          }
+        },
+        {
+          "id": "e",
+          "date": "2026-02-03",
+          "description": "Unlinked refund",
+          "amountCents": -50,
+          "state": "finalized",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "alex",
+                "amountCents": -50
+              }
+            ],
+            "category": "Travel"
+          }
+        },
+        {
+          "id": "f",
+          "date": "2026-01-01",
+          "description": "Unapproved",
+          "amountCents": 10000,
+          "state": "ready",
+          "proposal": {
+            "splits": [
+              {
+                "personId": "alex",
+                "amountCents": 10000
+              }
+            ],
+            "category": "Food"
+          }
+        }
+      ],
+      "people": [
+        {
+          "id": "self",
+          "name": "Me",
+          "handle": "me",
+          "relation": "",
+          "isSelf": 1
+        },
+        {
+          "id": "alex",
+          "name": "Alex",
+          "handle": "alex",
+          "relation": "Friend",
+          "isSelf": 0
+        },
+        {
+          "id": "zara",
+          "name": "Zara",
+          "handle": "zara",
+          "relation": "Friend",
+          "isSelf": 0
+        }
+      ],
+      "repayments": [
+        {
+          "id": "pay",
+          "personId": "alex",
+          "date": "2026-03-01",
+          "amountCents": 800,
+          "direction": "received",
+          "note": ""
+        },
+        {
+          "id": "return",
+          "personId": "alex",
+          "date": "2026-03-02",
+          "amountCents": 100,
+          "direction": "returned",
+          "note": ""
+        }
+      ],
+      "from": "2026-01-01",
+      "to": "2026-01-31",
+      "expected": [
+        {
+          "person": {
+            "id": "alex",
+            "name": "Alex",
+            "handle": "alex",
+            "relation": "Friend",
+            "isSelf": 0
+          },
+          "outstandingCents": 0,
+          "inRangeOutstandingCents": 0,
+          "creditCents": 216,
+          "receivedCents": 800,
+          "returnedCents": 100,
+          "expenses": [
+            {
+              "transactionId": "a",
+              "date": "2026-01-01",
+              "description": "First",
+              "allocatedCents": 34,
+              "refundedCents": 0,
+              "paidCents": 34,
+              "remainingCents": 0
+            },
+            {
+              "transactionId": "b",
+              "date": "2026-01-01",
+              "description": "Second",
+              "allocatedCents": 350,
+              "refundedCents": 50,
+              "paidCents": 300,
+              "remainingCents": 0
+            },
+            {
+              "transactionId": "c",
+              "date": "2026-02-01",
+              "description": "Third",
+              "allocatedCents": 200,
+              "refundedCents": 0,
+              "paidCents": 200,
+              "remainingCents": 0
+            }
+          ],
+          "unpaidExpenseCount": 0
+        },
+        {
+          "person": {
+            "id": "zara",
+            "name": "Zara",
+            "handle": "zara",
+            "relation": "Friend",
+            "isSelf": 0
+          },
+          "outstandingCents": 33,
+          "inRangeOutstandingCents": 33,
+          "creditCents": 0,
+          "receivedCents": 0,
+          "returnedCents": 0,
+          "expenses": [
+            {
+              "transactionId": "a",
+              "date": "2026-01-01",
+              "description": "First",
+              "allocatedCents": 33,
+              "refundedCents": 0,
+              "paidCents": 0,
+              "remainingCents": 33
+            }
+          ],
+          "unpaidExpenseCount": 1
+        }
+      ]
+    }
+  ],
+  "statements": [
+    {
+      "format": "amex",
+      "text": "Date,Description,Amount\n01/03/2026,\"Cafe, Inc\",12.34\n01/04/2026,AUTOPAY PAYMENT,-20.00\n01/05/2026,Refund,-1.01\n",
+      "expected": [
+        {
+          "rowNumber": 2,
+          "raw": {
+            "Date": "01/03/2026",
+            "Description": "Cafe, Inc",
+            "Amount": "12.34"
+          },
+          "date": "2026-01-03",
+          "postDate": null,
+          "description": "Cafe, Inc",
+          "amountCents": 1234,
+          "bankCategory": "",
+          "kind": "expense",
+          "fingerprint": "de6af483d2c4a716155e2e1023b339f358e3f1cff0c7a2d896a87be216b35c90"
+        },
+        {
+          "rowNumber": 3,
+          "raw": {
+            "Date": "01/04/2026",
+            "Description": "AUTOPAY PAYMENT",
+            "Amount": "-20.00"
+          },
+          "date": "2026-01-04",
+          "postDate": null,
+          "description": "AUTOPAY PAYMENT",
+          "amountCents": -2000,
+          "bankCategory": "",
+          "kind": "payment",
+          "fingerprint": "b186523eeec2026ecd4fb0511ed3dcc5aa02d625acc3b6f1e817a88ff7301e7a"
+        },
+        {
+          "rowNumber": 4,
+          "raw": {
+            "Date": "01/05/2026",
+            "Description": "Refund",
+            "Amount": "-1.01"
+          },
+          "date": "2026-01-05",
+          "postDate": null,
+          "description": "Refund",
+          "amountCents": -101,
+          "bankCategory": "",
+          "kind": "refund",
+          "fingerprint": "92ba104636dafa628fd476d415f084f58e9f7f2b27756f21e15dbecb9e6ba66d"
+        }
+      ]
+    },
+    {
+      "format": "chase",
+      "text": "﻿Transaction Date,Post Date,Description,Category,Type,Amount,Memo\r\n01/01/2026,01/02/2026,\"Shop \"\"A\"\"\",Shopping,Sale,-10.01,\r\n01/02/2026,01/03/2026,Payment,,Payment,100,\r\n",
+      "expected": [
+        {
+          "rowNumber": 2,
+          "raw": {
+            "Transaction Date": "01/01/2026",
+            "Post Date": "01/02/2026",
+            "Description": "Shop \"A\"",
+            "Category": "Shopping",
+            "Type": "Sale",
+            "Amount": "-10.01",
+            "Memo": ""
+          },
+          "date": "2026-01-01",
+          "postDate": "2026-01-02",
+          "description": "Shop \"A\"",
+          "amountCents": 1001,
+          "bankCategory": "Shopping",
+          "kind": "expense",
+          "fingerprint": "0906073974dec08119707686544ff53ddb612a98a63c3b49878b28b5be833c01"
+        },
+        {
+          "rowNumber": 3,
+          "raw": {
+            "Transaction Date": "01/02/2026",
+            "Post Date": "01/03/2026",
+            "Description": "Payment",
+            "Category": "",
+            "Type": "Payment",
+            "Amount": "100",
+            "Memo": ""
+          },
+          "date": "2026-01-02",
+          "postDate": "2026-01-03",
+          "description": "Payment",
+          "amountCents": -10000,
+          "bankCategory": "",
+          "kind": "payment",
+          "fingerprint": "12c5f2dfd62cfaec9d811e55cde384993696a5e95940ab0ce3694e092e683488"
+        }
+      ]
+    },
+    {
+      "format": "amex",
+      "text": "Date,Description,Amount\n02/30/2026,Invalid,1.00\n01/01/2026,Zero,0.00\n01/02/2026,\"Line one\nLine two\",12.00\n",
+      "expected": [
+        {
+          "rowNumber": 2,
+          "raw": {
+            "Date": "02/30/2026",
+            "Description": "Invalid",
+            "Amount": "1.00"
+          },
+          "date": null,
+          "postDate": null,
+          "description": "Invalid",
+          "amountCents": null,
+          "bankCategory": "",
+          "kind": "expense",
+          "fingerprint": "",
+          "error": "Invalid date."
+        },
+        {
+          "rowNumber": 3,
+          "raw": {
+            "Date": "01/01/2026",
+            "Description": "Zero",
+            "Amount": "0.00"
+          },
+          "date": "2026-01-01",
+          "postDate": null,
+          "description": "Zero",
+          "amountCents": 0,
+          "bankCategory": "",
+          "kind": "expense",
+          "fingerprint": "",
+          "error": "Zero-amount rows need manual correction before import."
+        },
+        {
+          "rowNumber": 4,
+          "raw": {
+            "Date": "01/02/2026",
+            "Description": "Line one\nLine two",
+            "Amount": "12.00"
+          },
+          "date": "2026-01-02",
+          "postDate": null,
+          "description": "Line one\nLine two",
+          "amountCents": 1200,
+          "bankCategory": "",
+          "kind": "expense",
+          "fingerprint": "9162dad9a091707be845ca7ee544842b7a101fb1de097277b93a717d611c8ed8"
+        }
+      ]
+    }
+  ]
+}

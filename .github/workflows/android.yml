@@ -1,0 +1,30 @@
+name: Android
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Install SDK platform
+        run: sdkmanager 'platforms;android-37' 'build-tools;36.0.0'
+      - name: Test, lint and build
+        working-directory: android
+        run: bash gradlew :ledger:test :assistant:test :app:lintDebug :app:assembleDebug
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: android-results
+          path: |
+            android/app/build/outputs/apk/debug/*.apk
+            android/app/build/reports/lint-results-debug.html
+            android/ledger/build/reports/tests/test/
+            android/assistant/build/reports/tests/test/

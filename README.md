@@ -1,5 +1,9 @@
 # Splitwise AI
 
+**Android app:** a standalone native app with an on-device Gemma assistant, full workspace restore, and USB installation scripts is available in `android/`. See [Android build and phone setup](docs/android.md).
+
+To test the mobile app manually on this Windows desktop, double-click **Start Android App.cmd**. It opens the real Android app in an emulator, keeps its workspace between sessions, and loads the verified local E4B model when available. See [desktop testing](docs/android.md#manual-desktop-testing).
+
 A personal expense workspace for Chase Sapphire, American Express, and Chase Prime CSV exports. Review AI-proposed splits, approve them, and track what people still owe you. Standalone; no connection to the Splitwise service.
 
 ## Start in WSL
@@ -256,3 +260,9 @@ npm run validate:samples -- /path/to/sample-directory
 Domain tests cover imports, duplicate counts, rounding, precedence/conflicts, authorization, stale edits, bulk review, persistent undo, refunds/repayments, and recovery. Browser tests use an isolated synthetic database and mocked AI for the complete workflow and mobile layout. The opt-in live smoke test uses synthetic data and skips without an API key.
 
 Git includes source, migrations, synthetic fixtures, and the dependency lockfile. Statements, keys, databases, test artifacts, backups, logs, and the downloaded runtime are ignored.
+
+### Model tool-calling benchmark
+
+The [141-scenario benchmark](benchmarks/tool-calling/README.md) compares GPT-6 Luna with the pinned Gemma 4 E2B/E4B models using a shared tool catalog and real ledger validation. It includes anonymized web-chat patterns, argument-level grading, scoped and multi-action requests, clarification, safety checks, latency, API usage, and a searchable trace report. All runs use synthetic in-memory ledgers.
+
+See the [measured comparison](docs/tool-benchmark.md) for CPU/GPU results, the GPU precision finding, and the app's separate fast equal-split check.
