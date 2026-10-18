@@ -17,7 +17,7 @@ A deployment candidate must load in the pinned LiteRT-LM 0.18.0 runtime, pass th
 After the measured comparison, run:
 
 ```sh
-/path/to/gemma-4-multimodal-finetuning/.venv/bin/python scripts/finetune-export.py
+"${GEMMA_TRAINING_PYTHON:-../gemma-4-multimodal-finetuning/.venv/bin/python}" scripts/finetune-export.py
 ```
 
 Create a fresh experiment directory to avoid overwriting a completed merged checkpoint. Exact converter dependencies are in `export-research/environment.json`; the converter command and resource bounds are in `export-manifest.json`.

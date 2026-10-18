@@ -264,7 +264,9 @@ export async function executeJob(store: Store, job: AgentJob, signal?: AbortSign
       if (
         needsAI.length &&
         aiAllowed &&
-        (process.env.OPENAI_API_KEY || process.env.AGENT_MODE === 'mock')
+        (store.settings().aiModel === 'gemma-v2' ||
+          process.env.OPENAI_API_KEY ||
+          process.env.AGENT_MODE === 'mock')
       ) {
         const ai = await askAgent(
           store,
@@ -276,6 +278,8 @@ export async function executeJob(store: Store, job: AgentJob, signal?: AbortSign
         );
         plan.updates.push(...ai.updates);
         plan.rules.push(...ai.rules);
+        (plan.organization ??= []).push(...(ai.organization || []));
+        (plan.requests ??= []).push(...(ai.requests || []));
       } else {
         for (const id of needsAI) {
           const tx = store.transaction(id);

@@ -38,8 +38,9 @@ class InferenceSession(
         loaded = ""
     }
 
-    private fun initialize(modelPath: String) {
-        if (loaded == modelPath && engine != null) return
+    private fun initialize(modelPath: String, reducedInterface: Boolean) {
+        val configurationKey = "$modelPath:float32=$reducedInterface"
+        if (loaded == configurationKey && engine != null) return
         engine?.close()
         engine = null
         loaded = ""
@@ -49,6 +50,7 @@ class InferenceSession(
                     EngineConfig(
                         modelPath = modelPath,
                         backend = backend,
+                        activationDataType = if (reducedInterface) ActivationDataType.FLOAT32 else null,
                         maxNumTokens = 16384,
                         cacheDir = cacheDirectory.path,
                     )
@@ -74,7 +76,7 @@ class InferenceSession(
                 backend = "CPU"
                 create(Backend.CPU(threadCount = cpuThreadCount))
             }
-        loaded = modelPath
+        loaded = configurationKey
     }
 
     private class SchemaTool(
@@ -347,7 +349,7 @@ class InferenceSession(
                 return@withContext AssistantPlan() to
                     "These expenses are finalized. Reopen them from Finalized before asking for a different split."
             progress("Loading $modelName", "")
-            initialize(modelPath)
+            initialize(modelPath, reducedInterface)
             val allowed = ids?.toSet()
             val plan = AssistantPlan()
             val focused =

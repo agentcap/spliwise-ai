@@ -41,7 +41,7 @@ Observed desktop CPU times were 26–40 seconds for successful actions and 43 se
 
 ## Limits of this verification
 
-The Android test device was not connected. Physical installation, GPU initialization, inference speed, temperature and sustained memory use still need a phone test. Desktop CPU inference uses the same Kotlin assistant code with LiteRT-LM's JVM runtime; it does not establish performance of the Android GPU runtime.
+A physical phone was not connected during verification. Physical installation, GPU initialization, inference speed, temperature and sustained memory use still need a phone test. Desktop CPU inference uses the same Kotlin assistant code with LiteRT-LM's JVM runtime; it does not establish performance of the Android GPU runtime.
 
 E4B is the recommended default. E2B passed the fact-saving regression but failed a cash-expense scenario by asking for a description already present in the request. It remains an optional smaller download. Both models can require clarification; manual editors remain available. Successful-change messages are derived from validated actions.
 

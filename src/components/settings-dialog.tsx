@@ -8,6 +8,8 @@ interface Settings {
   name?: string;
   timezone: string;
   consentAt: string | null;
+  aiModel: 'hosted' | 'gemma-v2';
+  fineTunedModel: { available: boolean };
   usage: {
     pricingConfigured?: boolean;
     month: string;
@@ -31,20 +33,29 @@ export default function SettingsDialog({
   const [settings, setSettings] = useState<Settings | null>(null),
     [timezone, setTimezone] = useState(''),
     [consent, setConsent] = useState(false),
+    [aiModel, setAiModel] = useState<'hosted' | 'gemma-v2'>('hosted'),
     [name, setName] = useState(''),
     [format, setFormat] = useState('chase'),
     [busy, setBusy] = useState(false),
     [error, setError] = useState(''),
     [notice, setNotice] = useState(''),
     [confirm, setConfirm] = useState('');
-  const load = async () => {
+  const load = async (isCurrent = () => true) => {
     const s = await api<Settings>('settings');
+    if (!isCurrent()) return;
     setSettings(s);
     setTimezone(s.timezone);
     setConsent(!!s.consentAt);
+    setAiModel(s.aiModel);
   };
   useEffect(() => {
-    load().catch((e) => setError(e.message));
+    let current = true;
+    load(() => current).catch((e) => {
+      if (current) setError(e.message);
+    });
+    return () => {
+      current = false;
+    };
   }, []);
   async function save(work: () => Promise<unknown>, message: string) {
     setBusy(true);
@@ -88,7 +99,10 @@ export default function SettingsDialog({
                 className="form"
                 onSubmit={(e) => {
                   e.preventDefault();
-                  void save(() => api('settings', { timezone, consent }), 'Preferences saved.');
+                  void save(
+                    () => api('settings', { timezone, consent, aiModel }),
+                    'Preferences saved.',
+                  );
                 }}
               >
                 <label>
@@ -114,10 +128,31 @@ export default function SettingsDialog({
                   ))}
                 </datalist>
                 <h3>Privacy & AI</h3>
+                <label>
+                  AI model
+                  <select
+                    aria-label="AI model"
+                    value={aiModel}
+                    onChange={(e) => setAiModel(e.target.value as 'hosted' | 'gemma-v2')}
+                  >
+                    <option value="hosted">Hosted AI</option>
+                    <option value="gemma-v2">Fine-tuned Gemma E2B (experimental)</option>
+                  </select>
+                </label>
+                {aiModel === 'gemma-v2' && (
+                  <p role="status" className="notice">
+                    {settings.fineTunedModel.available
+                      ? 'Available. Runs on this app’s computer without sending requests to OpenAI. Local inference has no API charge.'
+                      : 'The fine-tuned model is offline. Start the local model service before using it, or choose Hosted AI.'}{' '}
+                    This experimental model can misinterpret ambiguous requests. Use explicit
+                    participant handles and review proposed changes.
+                  </p>
+                )}
                 <p>
                   Statements, people, rules, chat and action history are stored on this app’s
-                  server. Using AI sends necessary expense details, names, rules and your
-                  instructions to OpenAI. Financial decisions always require your review.
+                  server. Hosted AI sends necessary expense details, names, rules and your
+                  instructions to OpenAI. Fine-tuned Gemma runs on the app’s computer. Financial
+                  decisions always require your review.
                 </p>
                 <p>
                   Hosted agent tracing and response storage are disabled. OpenAI’s API retention
@@ -141,7 +176,7 @@ export default function SettingsDialog({
               </form>
             </section>
             <section>
-              <h3>AI usage · {settings.usage.month} UTC</h3>
+              <h3>Hosted AI usage · {settings.usage.month} UTC</h3>
               <div className="usage-grid">
                 <div>
                   <b>

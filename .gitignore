@@ -22,3 +22,16 @@ secrets/
 
 .next-production-check/
 __pycache__/
+
+# Machine credentials, signing keys and generated model/application artifacts.
+.aws/
+.ssh/
+*.jks
+*.keystore
+*.p12
+*.pfx
+*.key
+*.safetensors
+*.litertlm
+*.gguf
+*.apk

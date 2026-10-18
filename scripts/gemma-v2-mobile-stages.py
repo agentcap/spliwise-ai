@@ -33,18 +33,33 @@ def export_part(stage):
         return original(self, *args, **kwargs)
     converter_utils.Converter.convert = convert
     config = configuration()
+    WORK.mkdir(parents=True, exist_ok=True)
     source = export_lib.load_model(config.model, config, task='text_generation')
     config = export_lib.update_export_config(config, source)
     result = export_lib.ExportedModelArtifacts()
-    function = export_lib.export_embedder_model if stage == 'embedder' else export_lib.export_additional_models
+    function = {'decoder': export_lib.export_text_prefill_decode_model,
+                'embedder': export_lib.export_embedder_model,
+                'additional': export_lib.export_additional_models}[stage]
     result = function(source, config, result)
     (OUT / f'{stage}-stage.json').write_text(json.dumps(dataclasses.asdict(result), indent=2) + '\n')
 
 
 def pack():
+    import inspect
     from types import SimpleNamespace
     from transformers import AutoConfig, AutoTokenizer, GenerationConfig
     from litert_torch.generative.export_hf.core import export_lib, litert_lm_builder
+    from litert_torch.generative.export_hf.model_ext.gemma4 import metadata_builder
+    from litert_lm_builder.runtime.proto import llm_model_type_pb2
+    # Match upstream #1241: 0.9.4 writes a field removed from builder 0.18.0.
+    # Apply the one-line compatibility fix in memory, preserving installed files.
+    if 'use_template_for_fc_format' not in llm_model_type_pb2.Gemma4.DESCRIPTOR.fields_by_name:
+        source = inspect.getsource(metadata_builder.build_llm_metadata)
+        obsolete = '  llm_metadata.llm_model_type.gemma4.use_template_for_fc_format = True\n'
+        assert source.count(obsolete) == 1
+        namespace = dict(metadata_builder.__dict__)
+        exec(compile(source.replace(obsolete, ''), '<gemma4-metadata-compat>', 'exec'), namespace)
+        metadata_builder.build_llm_metadata = namespace['build_llm_metadata']
     config = configuration()
     cfg = AutoConfig.from_pretrained(config.model)
     source = export_lib.SourceModelArtifacts(
@@ -82,7 +97,7 @@ def quantize(source):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('stage', choices=('quantize', 'embedder', 'additional', 'pack'))
+    parser.add_argument('stage', choices=('decoder', 'quantize', 'embedder', 'additional', 'pack'))
     parser.add_argument('source', nargs='?')
     args = parser.parse_args()
     if args.stage == 'quantize':

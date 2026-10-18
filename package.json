@@ -7,6 +7,7 @@
     "node": ">=24 <25"
   },
   "scripts": {
+    "model:local": "bash scripts/finetuned-model.sh",
     "dev": "node scripts/dev.mjs",
     "build": "next build",
     "start": "node scripts/dev.mjs --production",

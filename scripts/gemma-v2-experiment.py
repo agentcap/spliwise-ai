@@ -16,7 +16,7 @@ import urllib.request
 
 ROOT=Path(__file__).resolve().parent.parent
 TOP=Path(os.environ.get('GEMMA_V2_DIR',ROOT/'.tools/finetune/gemma4-e2b-v2')).resolve()
-PY=Path('/path/to/gemma-4-multimodal-finetuning/.venv/bin/python')
+PY=Path(os.environ.get('GEMMA_TRAINING_PYTHON', ROOT.parent/'gemma-4-multimodal-finetuning/.venv/bin/python'))
 OLD=ROOT/'.tools/finetune/gemma4-e2b-v1'
 
 

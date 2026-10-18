@@ -193,6 +193,7 @@ export const workspaceSettings = sqliteTable('workspace_settings', {
   timezone: text().notNull().default('America/Los_Angeles'),
   consentAt: text(),
   onboardingDismissed: integer().notNull().default(0),
+  aiModel: text().notNull().default('hosted'),
 });
 
 export const ledgerRevision = sqliteTable('ledger_revision', {

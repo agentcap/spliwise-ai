@@ -1,5 +1,16 @@
 [
   {
+    "id": "e2b-v2-reduced",
+    "name": "Gemma E2B fine-tuned v2 (experimental)",
+    "filename": "splitwise-gemma4-e2b-v2-reduced.litertlm",
+    "url": "",
+    "sha256": "035b5fb51f5f7a48634c3ebb6bb64725beb0dfe7a7ad72f6cde90750884690de",
+    "size": 3695941584,
+    "license": "Apache-2.0",
+    "source": "Local Gemma E2B v2 reduced adapter experiment",
+    "toolInterface": "reduced-v2"
+  },
+  {
     "id": "e2b",
     "name": "Gemma 4 E2B",
     "filename": "gemma-4-E2B-it.litertlm",

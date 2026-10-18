@@ -13,6 +13,7 @@ import { splitSchema, ruleDefinitionSchema, cleanRule } from './agent-schemas';
 export { splitSchema, ruleDefinitionSchema, cleanRule } from './agent-schemas';
 import { workspaceAgentTools } from './workspace-agent-tools';
 import { AssistantService, trustedUserText } from './assistant-service';
+import { askFineTunedAgent } from './finetuned-agent';
 import type { AssistantOperation, ExpenseAction } from './assistant-contracts';
 export interface AgentPlan {
   message: string;
@@ -52,6 +53,8 @@ export async function askAgent(
   );
   const plan: AgentPlan = { message: '', updates: [], rules: [] };
   onProgress?.({ activity: 'Reading your instructions…' });
+  if (store.settings().aiModel === 'gemma-v2')
+    return askFineTunedAgent(store, text, ids, signal, onProgress);
   const allowed = ids ? new Set(ids) : undefined;
   const permitted = (tx: Transaction) => {
     invariant(tx.state !== 'finalized', 'You cannot change finalized transactions.', 403);

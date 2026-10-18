@@ -1,9 +1,9 @@
 # Broader data and reduced tools experiment
 
-Run from `/path/to/splitwise_ai` with the existing, unchanged training environment:
+Run from the repository directory with a matching training environment:
 
 ```sh
-PY=/path/to/gemma-4-multimodal-finetuning/.venv/bin/python
+PY="${GEMMA_TRAINING_PYTHON:-../gemma-4-multimodal-finetuning/.venv/bin/python}"
 "$PY" scripts/gemma-v2-check.py
 "$PY" scripts/gemma-v2-experiment.py setup
 "$PY" scripts/gemma-v2-experiment.py run

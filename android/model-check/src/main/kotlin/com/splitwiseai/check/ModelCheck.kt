@@ -66,6 +66,10 @@ private data class Case(
 )
 
 fun main(args: Array<String>) = runBlocking {
+    if (args.firstOrNull() == "--serve-web") {
+        webModelServer(args.drop(1).toTypedArray())
+        return@runBlocking
+    }
     if (args.firstOrNull() == "--benchmark") {
         benchmarkMain(args.drop(1).toTypedArray())
         return@runBlocking

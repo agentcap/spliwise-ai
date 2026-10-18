@@ -4,6 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { authenticate, secureCookie, SESSION_COOKIE } from '@/lib/auth';
 import { workspaceStore, closeInactiveWorkspaces } from '@/lib/workspaces';
 import { config } from '@/lib/config';
+import { fineTunedModelStatus } from '@/lib/finetuned-agent';
 import { controlDb } from '@/db/control';
 import { checkOrigin, rateLimit, boundedJson, boundedForm } from '@/lib/security';
 import { log } from '@/lib/log';
@@ -68,6 +69,7 @@ async function handle(req: Request, context: Context, requestId: string): Promis
           email: principal?.email,
           name: principal?.name,
           ...service.settings(),
+          fineTunedModel: await fineTunedModelStatus(),
           usage: usageSummary(identity),
         },
         { headers: { 'Cache-Control': 'no-store' } },
@@ -281,8 +283,14 @@ async function handle(req: Request, context: Context, requestId: string): Promis
       );
     }
     if (key === 'settings') {
-      const a = z.object({ timezone: z.string().max(100), consent: z.boolean() }).parse(body);
-      service.updateSettings(a.timezone, a.consent);
+      const a = z
+        .object({
+          timezone: z.string().max(100),
+          consent: z.boolean(),
+          aiModel: z.enum(['hosted', 'gemma-v2']).optional(),
+        })
+        .parse(body);
+      service.updateSettings(a.timezone, a.consent, a.aiModel);
       return Response.json({ ok: true });
     }
     if (key === 'accounts') {

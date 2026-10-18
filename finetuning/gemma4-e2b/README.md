@@ -6,17 +6,18 @@ bundle is never trained. Outputs live in `.tools/finetune/gemma4-e2b-v1/`.
 The frozen benchmark and previous results remain intact.
 
 Requires WSL2/Linux, CUDA, approximately 12 GB GPU memory, and Python 3.12. The
-experiment reuses `/path/to/gemma-4-multimodal-finetuning/.venv/bin/python`
-without changing its packages. `requirements.txt` pins the observed versions;
+experiment uses the Python environment configured by `GEMMA_TRAINING_PYTHON`,
+defaulting to `../gemma-4-multimodal-finetuning/.venv/bin/python` from the repository.
+It does not change that environment's packages. `requirements.txt` pins the observed versions;
 install a matching CUDA PyTorch wheel separately when recreating the environment.
 Manifests capture exact dependencies, model hashes, seeds, settings and devices.
 
-Run from `/path/to/splitwise_ai`. For a new trial, set `GEMMA_FINETUNE_DIR`
+Run from the repository directory. For a new trial, set `GEMMA_FINETUNE_DIR`
 to a fresh absolute directory inside `.tools/finetune/`. Scripts refuse to mix
 evaluation trials; omit the variable for the retained v1 defaults.
 
 ```sh
-PY=/path/to/gemma-4-multimodal-finetuning/.venv/bin/python
+PY="${GEMMA_TRAINING_PYTHON:-../gemma-4-multimodal-finetuning/.venv/bin/python}"
 OUT=${GEMMA_FINETUNE_DIR:-$PWD/.tools/finetune/gemma4-e2b-v1}
 bash scripts/android-build.sh :model-check:installDist
 mkdir -p "$OUT"

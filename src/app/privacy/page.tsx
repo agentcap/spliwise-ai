@@ -5,7 +5,7 @@ export default function Privacy() {
     <main className="privacy-page">
       <Link href="/">← Back to workspace</Link>
       <h1>Privacy & data</h1>
-      <p>Last updated October 15, 2026.</p>
+      <p>Last updated October 17, 2026.</p>
       <h2>What is stored</h2>
       <p>
         This app stores your imported statement rows, transactions, people, split proposals, rules,
@@ -17,8 +17,12 @@ export default function Privacy() {
       <p>
         AI is optional. When you enable it and request processing, necessary transaction details,
         names and relationship tags, approved rules, saved context and recent conversation are sent
-        to OpenAI through its API. Approved rule matching and manual review can work without AI. The
-        agent can propose splits but cannot finalize transactions or record repayments.
+        to OpenAI through its API when Hosted AI is selected. The optional fine-tuned Gemma model
+        instead runs on the app operator’s computer using an in-memory workspace snapshot; these
+        requests are not sent to OpenAI. Your saved model choice applies to chat and AI processing.
+        If the selected model is unavailable, the request fails rather than switching providers.
+        Approved rule matching and manual review can work without AI. The agent can propose splits
+        but cannot finalize transactions or record repayments.
       </p>
       <p>
         Hosted agent tracing is disabled and API response storage is disabled. These settings do not

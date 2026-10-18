@@ -1,6 +1,6 @@
 # Android inference performance — October 16, 2026
 
-The development build is version **1.1.2**, using Gemma 4 E4B and LiteRT-LM 0.18.0. The desktop emulator uses 8 GB RAM, six virtual CPU cores and KVM host CPU features. AVX2 and FMA were verified inside Android. These measurements do not establish Galaxy GPU performance.
+The development build is version **1.1.2**, using Gemma 4 E4B and LiteRT-LM 0.18.0. The desktop emulator uses 8 GB RAM, six virtual CPU cores and KVM host CPU features. AVX2 and FMA were verified inside Android. These measurements do not establish physical-device GPU performance.
 
 ## Observed timings
 

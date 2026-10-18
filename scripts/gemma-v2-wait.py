@@ -20,7 +20,7 @@ if not archive.exists():
     save(TOP/'environment-interruption.json',dict(time=time.time(),
         originalPlanSha256=sha(TOP/'plan.json'),dataManifestSha256=sha(TOP/'data-manifest.json'),
         reason='Host GPU engine counters identified VALORANT PID33528 using 94% of the same GPU. Inference cache cleanup kept reserved CUDA memory near 6.5GiB but requests still took over 90s. This confirms external contention, rather than proving a model/cache leak, as the cause of the slowdown. All affected evaluation passes are excluded; no training or semantic changes occur.',
-        retained=retained,userPreference='User said they can free the GPU now. Wait for quiet memory/compute headroom before resuming.'))
+        retained=retained,resumePolicy='Wait for available GPU memory and compute headroom before resuming.'))
 quiet=0
 while quiet<3:
     r=subprocess.run(['nvidia-smi','--query-gpu=memory.used,utilization.gpu,temperature.gpu','--format=csv,noheader,nounits'],capture_output=True,text=True,check=True)

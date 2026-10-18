@@ -1,10 +1,10 @@
 # Splitwise AI for Android
 
-Native Kotlin/Compose app for Android 12 and newer, with a local SQLite ledger and on-device Gemma 4 inference. The target phone is the Android test device. The web app and phone have independent workspaces after a transfer.
+Native Kotlin/Compose app for Android 12 and newer, with a local SQLite ledger and on-device Gemma 4 inference. The web app and phone have independent workspaces after a transfer.
 
 ## Build on this Windows / WSL computer
 
-In Ubuntu, from `/path/to/splitwise_ai`:
+In Ubuntu, from the repository directory:
 
 ```sh
 python3 scripts/android-bootstrap.py
@@ -23,7 +23,7 @@ Use the mouse to tap controls and drag the expense list, and type with the deskt
 
 Try adding Alex with handle `alex`, adding a $12 lunch, selecting it in Review, and choosing **Give one instruction**. Ask to split it equally between yourself and `@alex`. Confirm the $6/$6 split, then finalize separately. Alex should owe $6. Record a $5 repayment to leave $1 outstanding. All normal editors, imports, reports, settings, and workspace backup/restore are available.
 
-The emulator uses CPU inference because its software graphics driver is unsuitable for model GPU execution. Phone builds continue to prefer GPU and fall back to CPU. Desktop emulator latency is not a Galaxy benchmark. The launcher copies a locally downloaded model without another network download; otherwise download E4B in the app settings. The optional Linux window libraries stay in `.tools/android/gui-libs/`. It runs only the emulator process with the KVM group on WSL and does not change account membership. The project toolchain, system image, WSL GUI support and KVM must already be installed. Emulator startup logs are under `.tools/android/desktop/`.
+The emulator uses CPU inference because its software graphics driver is unsuitable for model GPU execution. Phone builds continue to prefer GPU and fall back to CPU. Desktop emulator latency is not a physical-phone benchmark. The launcher copies a locally downloaded model without another network download; otherwise download E4B in the app settings. The optional Linux window libraries stay in `.tools/android/gui-libs/`. It runs only the emulator process with the KVM group on WSL and does not change account membership. The project toolchain, system image, WSL GUI support and KVM must already be installed. Emulator startup logs are under `.tools/android/desktop/`.
 
 For the faster equal-split path, select the expense first and use **Give one instruction**, then ask `Split equally between me and @alex`. Existing people and categories are required. The model receives the selected expense directly and a smaller set of relevant tools. Other split methods, ambiguous targets and requests containing additional actions keep the full tool catalog. Confirmation and separate finalization still apply. Model startup and general chat can take longer; see [measured performance and limits](android-performance.md).
 
@@ -35,7 +35,7 @@ An opt-in native inference check uses a separate synthetic ledger and leaves the
   com.splitwiseai.app.test/androidx.test.runner.AndroidJUnitRunner
 ```
 
-## Install on your Android test device
+## Install on an Android phone
 
 1. On the phone, open **Settings → About phone → Software information**, tap **Build number** seven times and enable **Developer options → USB debugging**.
 2. Connect the unlocked phone with a USB data cable. Accept its **Allow USB debugging** prompt.
@@ -55,7 +55,7 @@ After the download, turn on airplane mode to test chat and split processing. The
 
 AI-generated expense changes first appear as confirmation cards. **Confirm changes** prepares the split for review; **Finalize splits** updates balances. Rules, facts, templates and trip setup save automatically with action receipts and Undo. AI cannot finalize or reopen expenses. Manual import, review, splitting and reporting work without a downloaded model.
 
-For a first phone test in an empty workspace, add a person with an @handle and a $12 cash lunch. Download the model, enable airplane mode, select the lunch and ask to split it equally with that person. Confirm the proposed split, then finalize it: the person's balance should become $6. Record a $5 repayment and check the remaining $1. Undo and full workspace backup are available throughout. Test GPU speed and longer sessions on the phone itself; the emulator and desktop model runner do not establish Galaxy performance.
+For a first phone test in an empty workspace, add a person with an @handle and a $12 cash lunch. Download the model, enable airplane mode, select the lunch and ask to split it equally with that person. Confirm the proposed split, then finalize it: the person's balance should become $6. Record a $5 repayment and check the remaining $1. Undo and full workspace backup are available throughout. Test GPU speed and longer sessions on the phone itself; the emulator and desktop model runner do not establish physical-phone performance.
 
 ## Transfer your existing workspace
 

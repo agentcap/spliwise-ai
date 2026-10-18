@@ -66,15 +66,17 @@ export class Store {
   one<T>(sql: string, ...args: unknown[]): T | undefined {
     return this.db.prepare(sql).get(...args) as T | undefined;
   }
-  settings(): { timezone: string; consentAt: string | null } {
+  settings(): { timezone: string; consentAt: string | null; aiModel: 'hosted' | 'gemma-v2' } {
     return (
-      this.one('SELECT timezone,consentAt FROM workspace_settings WHERE id=?', 'main') || {
+      this.one('SELECT timezone,consentAt,aiModel FROM workspace_settings WHERE id=?', 'main') || {
         timezone: 'America/Los_Angeles',
         consentAt: null,
+        aiModel: 'hosted',
       }
     );
   }
-  updateSettings(timezone: string, consent: boolean) {
+  updateSettings(timezone: string, consent: boolean, aiModel = this.settings().aiModel) {
+    invariant(aiModel === 'hosted' || aiModel === 'gemma-v2', 'Choose a supported AI model.');
     try {
       new Intl.DateTimeFormat('en', { timeZone: timezone }).format();
     } catch {
@@ -82,9 +84,9 @@ export class Store {
     }
     this.db
       .prepare(
-        'INSERT INTO workspace_settings(id,timezone,consentAt) VALUES(?,?,?) ON CONFLICT(id) DO UPDATE SET timezone=excluded.timezone,consentAt=excluded.consentAt',
+        'INSERT INTO workspace_settings(id,timezone,consentAt,aiModel) VALUES(?,?,?,?) ON CONFLICT(id) DO UPDATE SET timezone=excluded.timezone,consentAt=excluded.consentAt,aiModel=excluded.aiModel',
       )
-      .run('main', timezone, consent ? this.settings().consentAt || now() : null);
+      .run('main', timezone, consent ? this.settings().consentAt || now() : null, aiModel);
     if (!consent)
       this.db
         .prepare(

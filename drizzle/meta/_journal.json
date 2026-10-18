@@ -71,6 +71,13 @@
       "when": 1792104487256,
       "tag": "0009_assistant_memory_and_actions",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "6",
+      "when": 1792277000000,
+      "tag": "0010_ai_model_choice",
+      "breakpoints": true
     }
   ]
 }

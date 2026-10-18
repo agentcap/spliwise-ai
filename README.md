@@ -1,10 +1,40 @@
 # Splitwise AI
 
-**Android app:** a standalone native app with an on-device Gemma assistant, full workspace restore, and USB installation scripts is available in `android/`. See [Android build and phone setup](docs/android.md).
+A personal expense workspace with a conversational assistant, a webapp, and a native Android app. Import statements, organize shared expenses, review proposed splits, and track what people still owe you. Supports Chase Sapphire, American Express, and Chase Prime CSV exports, plus manual expenses. Standalone; no connection to the Splitwise service.
 
-To test the mobile app manually on this Windows desktop, double-click **Start Android App.cmd**. It opens the real Android app in an emulator, keeps its workspace between sessions, and loads the verified local E4B model when available. See [desktop testing](docs/android.md#manual-desktop-testing).
+Choose hosted AI or an experimental, fine-tuned Gemma E2B model in the webapp. Android runs Gemma on the device. The application calculates exact shares, validates actions, and requires explicit user confirmation for expense changes and repayments.
 
-A personal expense workspace for Chase Sapphire, American Express, and Chase Prime CSV exports. Review AI-proposed splits, approve them, and track what people still owe you. Standalone; no connection to the Splitwise service.
+## Screenshots
+
+### Webapp
+
+| Review shared expenses                                                                                                                                                                                                    | Track spending and outstanding balances                                                                                                                                                         |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| <a href="docs/screenshots/web-review.png"><img src="docs/screenshots/web-review.png" alt="Web review workspace with Inbox expenses, clarification questions, and proposed equal splits ready for review" width="440"></a> | <a href="docs/screenshots/web-overview.png"><img src="docs/screenshots/web-overview.png" alt="Web overview showing unpaid balances, your finalized share, and spending charts" width="440"></a> |
+
+### Android app
+
+| Assistant and confirmation cards                                                                                                                                                                         | Inbox and expense review                                                                                                                                                                                 | Trips and shared context                                                                                                                                                                                                 |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| <a href="docs/screenshots/android-assistant.png"><img src="docs/screenshots/android-assistant.png" alt="Native Android assistant with a three-person lunch split awaiting confirmation" width="250"></a> | <a href="docs/screenshots/android-review.png"><img src="docs/screenshots/android-review.png" alt="Native Android review screen with Inbox and Ready tabs and grouped merchant expenses" width="250"></a> | <a href="docs/screenshots/android-trips.png"><img src="docs/screenshots/android-trips.png" alt="Native Android trips screen with shared participants, trip context, finalized spending, and your share" width="250"></a> |
+
+Screenshots use synthetic sample expenses and people. Web captures come from the browser workflow test with mocked AI; Android captures show the real app in an emulator, with a seeded demo conversation and ledger-backed confirmation card. They illustrate the interface, not measured model performance. Click an image for full resolution. [Screenshot sources](docs/screenshots/README.md).
+
+## Features at a glance
+
+- **Conversations that prepare actions:** describe a split, trip, recurring rule, or household fact. The assistant can organize the workspace and prepare expense and repayment cards.
+- **Statement import and manual entry:** preview CSV imports, detect duplicates, capture context, and add cash, rent, or other expenses outside a statement.
+- **Review before balances change:** Inbox/Ready workflows, equal/exact/percentage splits, explicit confirmation, separate finalization, version checks, and persistent Undo.
+- **Reusable organization:** merchant rules, split templates, readable merchant names, and saved facts scoped to a person, trip, or date range.
+- **Trips and reporting:** trip defaults with individual exceptions, expense assignments, unpaid balances, recorded repayments, date filters, and settlement-summary downloads.
+- **Private storage and portability:** SQLite workspaces, receipt attachments, JSON/CSV transfers, complete workspace backup/restore, and isolated signed-in workspaces in production.
+- **Small-model experimentation:** a saved webapp model choice and an Android import path for the experimental fine-tuned model, with reproducible training and tool-call evaluations.
+
+The webapp and Android app have independent workspaces after a transfer; there is no automatic synchronization. Expenses are USD amounts you paid, rather than complete multi-payer group accounting.
+
+**Android setup:** the standalone Kotlin/Compose app, on-device Gemma assistant, full workspace restore, and USB installation scripts are in `android/`. See [Android build and phone setup](docs/android.md).
+
+To test the mobile app on Windows, double-click **Start Android App.cmd**. It opens the Android app in an emulator, keeps its workspace between sessions, and loads the verified local E4B model when available. See [desktop testing](docs/android.md#manual-desktop-testing).
 
 ## Start in WSL
 
@@ -17,7 +47,7 @@ cd /path/to/splitwise_ai
 
 Open **http://127.0.0.1:3000**. The launcher installs a project-local native Node 24 LTS runtime if needed, verifies the download checksum, installs locked dependencies, and starts the web app and worker. Stop both with Ctrl+C.
 
-The runtime is already installed in this checkout. To run npm commands in a new Ubuntu terminal:
+After the first launch installs the runtime, run npm commands in a new Ubuntu terminal from the repository directory:
 
 ```sh
 export PATH="$PWD/.tools/node/bin:$PATH"
@@ -35,15 +65,54 @@ For internet access, use the separate [production deployment guide](docs/product
 
 ### Enable AI
 
-A blank, ignored **.env.local** is prepared. Set **OPENAI_API_KEY** there, then restart. **OPENAI_MODEL** defaults to **gpt-6-luna**. Do not put the key in browser code or Git. On a fresh checkout:
+For **Hosted AI**, set **OPENAI_API_KEY** in the ignored **.env.local**, then restart. **OPENAI_MODEL** defaults to **gpt-6-luna**. Do not put the key in browser code or Git. On a fresh checkout:
 
 ```sh
 cp -n .env.example .env.local
 ```
 
-Without a key, imports, approved rules, manual splits, review, repayments, and reporting work. Unresolved expenses stay in Inbox. **AGENT_MODE=mock** is exclusively for automated tests with synthetic data.
+For **Fine-tuned Gemma E2B**, start the local model service alongside the webapp:
+
+```sh
+npm run model:local
+```
+
+Then select **Workspace settings → AI model → Fine-tuned Gemma E2B (experimental) → Save preferences**. It runs on the app server's computer, needs no OpenAI key, and applies to chat and AI-assisted processing. If it is unavailable, requests fail explicitly without switching to hosted AI. The converted model and Java runtime must already be provisioned; model weights are not included in Git. See [local web model setup](docs/gemma4-web-model.md).
+
+Android can import the separately supplied fine-tuned `.litertlm` file through its AI model settings. See [fine-tuned Android test build and installation](docs/gemma4-android-v2.md). Model loading and desktop runtime smoke checks have passed; physical-phone validation of this candidate is still pending.
+
+Without a hosted key or a running local model, imports, approved rules, manual splits, review, repayments, and reporting still work. Unresolved expenses stay in Inbox. **AGENT_MODE=mock** is exclusively for automated tests with synthetic data.
 
 The interface uses **Midnight**, a modern navy theme with restrained blue accents, and a matching light theme. The top-bar switch remembers your choice across reloads. Compact review, readable split amounts, mobile Inbox/Ready tabs and a detail drawer keep common actions close.
+
+## Why fine-tune a small model for expense tasks?
+
+A fluent answer is only part of an expense assistant's job. A request such as “Split this $12 lunch equally between @me and @alex” needs the right operation, real participant IDs, the selected expense's current version, and a valid tool call. Saving a recurring rule, asking for clarification, and preparing a one-off split are different actions. A small general-purpose model can understand the sentence while still getting that application contract wrong.
+
+Fine-tuning on complete tool-use trajectories teaches the model how the app expects work to be done: choose an operation, supply its arguments, read the tool result, and finish with an appropriate reply. The v2 curriculum includes answer-only requests, clarification, supported and unsupported actions, scoped facts, and combinations of tasks. It adapts model behavior to the workflow; the user's ledger and changing balances remain in the database.
+
+This is useful for bounded local assistants: a compact model can specialize in recurring application workflows while requests stay on the app's computer or phone, without a hosted API dependency. The training examples need to cover exceptions, missing information, and failed tools as well as successful actions. General fluency alone does not establish reliable task completion.
+
+This project pairs that training with a **reduced tool interface**. Fixed retrieval rules expose relevant tools, and application code supplies observed record versions, converts dollars and percentages to ledger units, and fills an omitted expense ID only when exactly one expense is selected. This reduces bookkeeping the model must generate correctly. The model still chooses the operation, participants, and requested scope; the ledger computes rounded shares and validates the result. In the lunch example, the application calculates two 600-cent shares from the proposed equal split.
+
+### What the experiment measured
+
+Two independent QLoRA adapters were trained from the same official Gemma 4 E2B checkpoint on **2,476 synthetic training episodes**, with one epoch per adapter. They saw the same semantic examples, serialized for either the full or reduced interface. No held-out scores were used for checkpoint or hyperparameter selection.
+
+| Configuration                           | Fresh held-out completion | Original benchmark completion |
+| --------------------------------------- | ------------------------: | ----------------------------: |
+| Base model, full tools                  |             12/128 (9.4%) |                65/140 (46.4%) |
+| Base model, reduced interface           |            26/128 (20.3%) |                90/140 (64.3%) |
+| Broader fine-tuning, full tools         |            99/128 (77.3%) |               106/140 (75.7%) |
+| Broader fine-tuning + reduced interface |       **104/128 (81.2%)** |           **110/140 (78.6%)** |
+
+Broader training supplied most of the completion gain; the reduced interface added a smaller gain. This supports combining task-specific training with a simpler application contract when using small models. Training is not automatically a speed improvement: the combined model's held-out median was **16.22 seconds**, versus **14.04 seconds** for the base/full configuration, though it was faster than the trained/full configuration at 18.19 seconds.
+
+These are matched **CUDA/NF4 experiment results**, not Android or web-serving benchmarks. The cases are synthetic and related templates are correlated, so the percentages do not estimate production reliability. The converted mobile bundle uses a different runtime and quantization.
+
+**The fine-tuned model remains experimental.** The best configuration still fails 24/128 fresh cases and 30/140 original cases. Clarification regressed from 15/15 to 10/15; the model can guess who “my friend” means and sometimes claim success after a rejected call. Fine-tuning does not replace version checks, validation, truthful completion summaries, or explicit user confirmation.
+
+See the [full v2 results and failure analysis](docs/gemma4-experiment-v2.md), [reproduction protocol](finetuning/gemma4-e2b/experiment-v2.md), [webapp integration](docs/gemma4-web-model.md), and [Android conversion and checks](docs/gemma4-android-v2.md).
 
 ## A conversation-first workspace
 
@@ -254,12 +323,15 @@ npm run test:eval -- --live      # Opt-in billable model evaluations
 npm run test:assistant             # Conversation capability regressions
 npm run test:assistant -- --live    # Opt-in live trips, memory and rule checks
 npm run check:secrets
+npm run check:secrets -- --history # Also scan old commits before making a repository public
 npm run validate:samples -- /path/to/sample-directory
 ```
 
 Domain tests cover imports, duplicate counts, rounding, precedence/conflicts, authorization, stale edits, bulk review, persistent undo, refunds/repayments, and recovery. Browser tests use an isolated synthetic database and mocked AI for the complete workflow and mobile layout. The opt-in live smoke test uses synthetic data and skips without an API key.
 
 Git includes source, migrations, synthetic fixtures, and the dependency lockfile. Statements, keys, databases, test artifacts, backups, logs, and the downloaded runtime are ignored.
+
+Before making the repository public, follow the [public-release privacy checks](docs/public-release.md), including the Git history scan. Publish Git-tracked source rather than an archive of the full local workspace.
 
 ### Model tool-calling benchmark
 
