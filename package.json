@@ -36,7 +36,7 @@
   "dependencies": {
     "@fontsource/dm-sans": "5.3.0",
     "@fontsource/manrope": "5.3.0",
-    "@openai/agents": "0.20.0",
+    "@openai/agents": "0.21.0",
     "better-sqlite3": "13.0.3",
     "csv-parse": "7.0.3",
     "drizzle-orm": "0.45.4",
